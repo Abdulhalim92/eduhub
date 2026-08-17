@@ -1,0 +1,44 @@
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Git worktrees (local scratch, not part of history)
+.worktrees/
+
+# Environment
+.env
+.env.*
+
+# Claude Code — local files (not committed)
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/.compact-marker
+.claude/.session-log
+
+# AI agent tooling (installed skill/agent bundles, not project code)
+.agents/
+.codex/
+.impeccable/
+agent/
+claude-talk-to-figma-mcp/
+skills-lock.json
+.mcp.json
+
+# Node / build (frontend)
+node_modules/
+dist/
+build/
+.next/
+*.log
+
+# Go / build (backend)
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.html
+coverage.txt

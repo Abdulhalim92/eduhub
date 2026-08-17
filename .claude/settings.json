@@ -1,0 +1,54 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/abdulhalim/Desktop/My-projects/eduhub && bash .claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/abdulhalim/Desktop/My-projects/eduhub && bash .claude/hooks/pre-compact-checkpoint.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/abdulhalim/Desktop/My-projects/eduhub && bash .claude/hooks/session-end-checkpoint.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/abdulhalim/Desktop/My-projects/eduhub && bash .claude/hooks/post-write-lint.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/abdulhalim/Desktop/My-projects/eduhub && bash .claude/hooks/post-write-lint.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
