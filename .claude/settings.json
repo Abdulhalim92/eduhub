@@ -30,26 +30,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd /Users/abdulhalim/Desktop/My-projects/eduhub && bash .claude/hooks/post-write-lint.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd /Users/abdulhalim/Desktop/My-projects/eduhub && bash .claude/hooks/post-write-lint.sh"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Glob|Grep",

@@ -24,6 +24,7 @@ agent/
 claude-talk-to-figma-mcp/
 skills-lock.json
 .mcp.json
+.claude/skills/
 
 # Node / build (frontend)
 node_modules/

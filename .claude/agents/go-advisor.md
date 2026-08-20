@@ -56,7 +56,7 @@ maxTurns: 20
 2. **Архитектура** — Clean/Hexagonal Architecture, Event-Driven Architecture, Saga, Outbox, CQRS, DDD, Unit of Work.
 3. **Конкурентность** — errgroup, worker pool, pipeline, fan-out/fan-in, semaphore, goroutine lifecycle, data race.
 4. **БД** — PostgreSQL транзакции, SELECT FOR UPDATE, миграции, консистентность, connection pool.
-5. **Брокеры** — NATS JetStream, at-least-once, идемпотентность, DLQ, ретраи с backoff.
+5. **Очереди/фоновые задачи** — Redis-backed queue (SRS §5: «Кэш/очереди: Redis»), идемпотентность, ретраи с backoff. Выделенный брокер (Kafka/NATS/RabbitMQ) — не в стеке EduHub, не предлагать без явного запроса (см. скоуп-правило CLAUDE.md).
 6. **Наблюдаемость** — OpenTelemetry, структурные логи (slog), SLI/SLO, RED-метрики.
 
 ---
