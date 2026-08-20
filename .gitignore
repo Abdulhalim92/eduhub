@@ -12,9 +12,7 @@
 
 # Claude Code — local files (not committed)
 CLAUDE.local.md
-.claude/settings.local.json
-.claude/.compact-marker
-.claude/.session-log
+.claude/
 
 # AI agent tooling (installed skill/agent bundles, not project code)
 .agents/
@@ -24,7 +22,9 @@ agent/
 claude-talk-to-figma-mcp/
 skills-lock.json
 .mcp.json
-.claude/skills/
+
+# graphify knowledge-graph cache (regenerable, local only)
+graphify-out/
 
 # Node / build (frontend)
 node_modules/
