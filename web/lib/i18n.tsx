@@ -13,7 +13,7 @@ export type Locale = "ru" | "tg";
 export const UI_STRINGS: Record<string, Bi> = {
   // nav
   "nav.home": { ru: "Главная", tg: "Асосӣ" },
-  "nav.search": { ru: "Поиск", tg: "Ҷустуҷӯ" },
+  "nav.search": { ru: "Учреждения", tg: "Муассисаҳо" },
   "nav.vacancies": { ru: "Вакансии", tg: "Ҷойҳои холӣ" },
   "nav.about": { ru: "О нас", tg: "Дар бораи мо" },
   "nav.categories": { ru: "Типы учреждений", tg: "Намудҳои муассиса" },
@@ -28,9 +28,7 @@ export const UI_STRINGS: Record<string, Bi> = {
   "nav.logout": { ru: "Выйти", tg: "Баромадан" },
   "nav.allRegions": { ru: "Все регионы", tg: "Ҳама минтақаҳо" },
   "nav.role.user": { ru: "Обычный пользователь", tg: "Истифодабарандаи оддӣ" },
-  "nav.role.parent": { ru: "Родитель", tg: "Волидайн" },
   "nav.role.institution": { ru: "Учреждение", tg: "Муассиса" },
-  "nav.role.applicant": { ru: "Соискатель", tg: "Ҷуяндаи кор" },
   "nav.guide.applicants": { ru: "Соискателям", tg: "Ба ҷуяндагони кор" },
 
   // common
@@ -124,6 +122,48 @@ export const UI_STRINGS: Record<string, Bi> = {
   "ach.institution": { ru: "Достижения учреждения", tg: "Дастовардҳои муассиса" },
   "ach.student": { ru: "Достижения учеников", tg: "Дастовардҳои хонандагон" },
   "ach.teacher": { ru: "Достижения педагогов", tg: "Дастовардҳои омӯзгорон" },
+
+  // review connection gate (SRS FR-15/FR-30 — верификация через привязку ребёнка)
+  "review.needConnection": { ru: "Отзыв могут оставить только родители, чей ребёнок связан с этим учреждением.", tg: "Шарҳро танҳо волидайне гузошта метавонанд, ки фарзандашон бо ин муассиса алоқаманд аст." },
+  "review.linkChild": { ru: "Указать ребёнка в личном кабинете", tg: "Дар кабинети шахсӣ фарзандро нишон додан" },
+  "review.overall": { ru: "Общая оценка", tg: "Баҳои умумӣ" },
+
+  // children tab (UserCabinet)
+  "children.institution": { ru: "Учреждение", tg: "Муассиса" },
+  "children.noInstitution": { ru: "Без привязки к учреждению", tg: "Бе алоқаманд ба муассиса" },
+  "children.status": { ru: "Статус", tg: "Мақом" },
+  "children.statusCurrent": { ru: "Учится сейчас", tg: "Ҳоло мехонад" },
+  "children.statusAlumnus": { ru: "Выпускник", tg: "Хатмкарда" },
+  "children.statusTransferred": { ru: "Перешёл в другое учреждение", tg: "Ба муассисаи дигар гузашт" },
+  "children.multiInstHint": { ru: "Один ребёнок может учиться сразу в нескольких учреждениях (например, школа + учебный центр) — просто добавьте отдельную запись с тем же именем для каждого.", tg: "Як фарзанд метавонад дар якчанд муассиса якбора хонад (масалан, мактаб + марказ) — барои ҳар кадом сабти алоҳидаро бо номи якхела илова кунед." },
+
+  // профиль «Ищу работу» — вкладка единого кабинета пользователя, не отдельный кабинет
+  "applicant.position": { ru: "Желаемая должность", tg: "Мансаби дилхоҳ" },
+  "applicant.about": { ru: "О себе", tg: "Дар бораи худ" },
+  "applicant.cv": { ru: "Резюме (файл)", tg: "Резюме (файл)" },
+  "applicant.education": { ru: "Образование", tg: "Таҳсилот" },
+  "applicant.experience": { ru: "Опыт работы", tg: "Таҷрибаи корӣ" },
+  "applicant.skills": { ru: "Навыки", tg: "Малакаҳо" },
+  "applicant.publish": { ru: "Опубликовать профиль", tg: "Профилро нашр кунед" },
+  "applicant.unpublish": { ru: "Снять с публикации", tg: "Аз нашр гирифтан" },
+  "applicant.publishedNote": { ru: "Профиль опубликован — виден учреждениям и другим пользователям.", tg: "Профил нашр шудааст — ба муассисаҳо ва дигар корбарон намоён аст." },
+  "applicant.draftNote": { ru: "Черновик — не виден другим, пока вы не опубликуете профиль.", tg: "Лоиҳа — то нашр кардани профил ба дигарон намоён нест." },
+  "applicant.visibility.draft": { ru: "Черновик", tg: "Лоиҳа" },
+  "applicant.visibility.draftDesc": { ru: "Виден только вам", tg: "Танҳо ба худи шумо намоён аст" },
+  "applicant.visibility.on_response": { ru: "По отклику", tg: "Аз рӯи ҷавоб" },
+  "applicant.visibility.on_responseDesc": { ru: "Виден только учреждению, которому вы откликнулись", tg: "Танҳо ба муассисае, ки ба он ҷавоб додаед, намоён аст" },
+  "applicant.visibility.public": { ru: "Публично", tg: "Оммавӣ" },
+  "applicant.visibility.publicDesc": { ru: "Виден всем в разделе «Ищу работу»", tg: "Дар бахши «Ҷустуҷӯи кор» ба ҳама намоён аст" },
+  "applicant.hideContacts": { ru: "Скрывать телефон и email, пока учреждение не ответит в чате", tg: "Телефон ва email-ро то ҷавоби муассиса дар чат пинҳон доштан" },
+  "tab.candidates": { ru: "Ищу работу", tg: "Ҷустуҷӯи кор" },
+  "empty.candidates": { ru: "Пока нет опубликованных резюме", tg: "Ҳанӯз резюмеи нашршуда нест" },
+  "applicant.myApplications": { ru: "Мои отклики", tg: "Ҷавобҳои ман" },
+  "applicant.employerResponses": { ru: "Кто откликнулся мне", tg: "Кӣ ба ман ҷавоб дод" },
+  "empty.employerResponses": { ru: "Пока никто из учреждений вам не написал", tg: "То ҳол ҳеҷ муассиса ба шумо нанавиштааст" },
+  "empty.applications": { ru: "Вы ещё не откликались на вакансии", tg: "Шумо ҳанӯз ба ҷойҳои холӣ ҷавоб надодаед" },
+  "application.status.sent": { ru: "Отправлен", tg: "Фиристода шуд" },
+  "application.status.viewed": { ru: "Просмотрен учреждением", tg: "Аз ҷониби муассиса дида шуд" },
+  "application.status.closed": { ru: "Закрыт", tg: "Пӯшида шуд" },
 };
 
 export function translate(x: string | Bi, locale: Locale): string {

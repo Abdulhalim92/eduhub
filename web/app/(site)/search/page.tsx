@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, ChevronDown, X } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Search, SlidersHorizontal, ChevronDown, X, Map } from "lucide-react";
 import { C, FH, FB, INSTITUTIONS, CATEGORY_META, REGION_LABEL, REGION_ORDER, type CategoryKey } from "@/lib/data";
 import { InstitCard } from "@/components/InstitCard";
 import { useReveal, revealStyle } from "@/lib/useReveal";
@@ -48,21 +49,40 @@ export default function SearchPage() {
 
 function SearchPageInner() {
   const router = useRouter();
+  const pathname = usePathname();
   const urlParams = useSearchParams();
   const t = useT();
   const [q,        setQ]        = useState(urlParams.get("q") ?? "");
-  const [typeF,    setTypeF]    = useState<CategoryKey|null>(null);
-  const [regionF,  setRegionF]  = useState<string|null>(null);
-  const [areaF,    setAreaF]    = useState<string[]>([]);
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(2000);
-  const [ratingF,  setRatingF]  = useState(0);
-  const [transF,   setTransF]   = useState(false);
-  const [foodF,    setFoodF]    = useState(false);
-  const [verF,     setVerF]     = useState(false);
-  const [sort,     setSort]     = useState<SortKey>("score");
+  const [typeF,    setTypeF]    = useState<CategoryKey|null>((urlParams.get("type") as CategoryKey) || null);
+  const [regionF,  setRegionF]  = useState<string|null>(urlParams.get("region"));
+  const [areaF,    setAreaF]    = useState<string[]>(urlParams.get("area")?.split(",").filter(Boolean) ?? []);
+  const [minPrice, setMinPrice] = useState(Number(urlParams.get("minPrice") ?? 0));
+  const [maxPrice, setMaxPrice] = useState(Number(urlParams.get("maxPrice") ?? 2000));
+  const [ratingF,  setRatingF]  = useState(Number(urlParams.get("rating") ?? 0));
+  const [transF,   setTransF]   = useState(urlParams.get("transport") === "1");
+  const [foodF,    setFoodF]    = useState(urlParams.get("food") === "1");
+  const [verF,     setVerF]     = useState(urlParams.get("verified") === "1");
+  const [sort,     setSort]     = useState<SortKey>((urlParams.get("sort") as SortKey) || "score");
   const [showFilters, setShowFilters] = useState(true);
   const { ref: resultsRef, visible: resultsVisible } = useReveal<HTMLDivElement>();
+
+  // URL — источник истины для фильтров: отфильтрованный вид можно расшарить/забукмаркить (без перезагрузки страницы)
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (typeF) p.set("type", typeF);
+    if (regionF) p.set("region", regionF);
+    if (areaF.length > 0) p.set("area", areaF.join(","));
+    if (minPrice > 0) p.set("minPrice", String(minPrice));
+    if (maxPrice < 2000) p.set("maxPrice", String(maxPrice));
+    if (ratingF > 0) p.set("rating", String(ratingF));
+    if (transF) p.set("transport", "1");
+    if (foodF) p.set("food", "1");
+    if (verF) p.set("verified", "1");
+    if (sort !== "score") p.set("sort", sort);
+    const qs = p.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [q, typeF, regionF, areaF, minPrice, maxPrice, ratingF, transF, foodF, verF, sort, router, pathname]);
 
   const toggleArea = (a:string) =>
     setAreaF(prev => prev.includes(a) ? prev.filter(x=>x!==a) : [...prev, a]);
@@ -119,6 +139,9 @@ function SearchPageInner() {
           </select>
           <ChevronDown size={14} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",color:C.muted,pointerEvents:"none"}}/>
         </div>
+        <Link href="/map" style={{display:"flex",alignItems:"center",gap:7,padding:"11px 16px",borderRadius:12,fontFamily:FH,fontWeight:700,fontSize:13.5,border:`1px solid ${C.border}`,color:C.sub,textDecoration:"none",whiteSpace:"nowrap"}}>
+          <Map size={15}/> {t({ru:"На карте",tg:"Дар харита"})}
+        </Link>
         <span style={{fontFamily:FB,fontSize:14,color:C.muted,whiteSpace:"nowrap"}}>
           <b style={{color:C.text}}>{results.length}</b> {t({ru:"учреждений",tg:"муассиса"})}
         </span>

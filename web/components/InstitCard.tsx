@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle, Heart, Bus, UtensilsCrossed } from "lucide-react";
-import { C, FH, Institution, CATEGORY_META } from "@/lib/data";
+import { C, FH, Institution, CATEGORY_META, CURRICULUM_META } from "@/lib/data";
 import { useAppState } from "@/lib/app-state";
 import { useT } from "@/lib/i18n";
 
@@ -72,6 +72,9 @@ export function InstitCard({ inst, onClick }: {
         <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:13}}>
           {inst.transport && <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10.5,fontWeight:600,padding:"3px 8px",borderRadius:8,background:`${C.teal}18`,color:C.teal,fontFamily:FH}}><Bus size={11}/> {t({ru:"Развозка",tg:"Расонидан"})}</span>}
           {inst.food      && <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10.5,fontWeight:600,padding:"3px 8px",borderRadius:8,background:`${C.s3}`,color:C.sub,fontFamily:FH}}><UtensilsCrossed size={11}/> {t({ru:"Питание",tg:"Ғизо"})}</span>}
+          {inst.curriculum?.map(ck => (
+            <span key={ck} style={{fontSize:10.5,fontWeight:600,padding:"3px 8px",borderRadius:8,background:C.s3,color:C.sub,fontFamily:FH}}>{t(CURRICULUM_META[ck].label)}</span>
+          ))}
         </div>
 
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:12,borderTop:`1px solid ${C.border}`}}>

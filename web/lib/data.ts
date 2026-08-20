@@ -221,7 +221,19 @@ export interface Institution {
   socials?: { instagram?: string; telegram?: string; facebook?: string };
   foodMenu?: { day:string; meals:{name:string;cal:string;allergens:string[]}[] }[];
   transportInfo?: { types: Bi[]; areas: Bi[]; cost: number };
+  curriculum?: CurriculumKey[]; // программа обучения (SRS FR-28) — разовое поле, не для садов/дошкольных
+  geo: { lat: number; lng: number }; // SRS §7.2 GEOGRAPHY(Point) — обязательное поле (разовое при регистрации), нужно для гео-поиска «рядом со мной» и карт
 }
+
+// цвета намеренно не задаются здесь — бейджи используют единый нейтральный
+// стиль (см. InstitCard), чтобы не расширять зафиксированную палитру C.
+export type CurriculumKey = "state"|"bilingual"|"international"|"stem";
+export const CURRICULUM_META: Record<CurriculumKey, { label: Bi }> = {
+  state:         { label: {ru:"Гос. программа", tg:"Барномаи давлатӣ"} },
+  bilingual:     { label: {ru:"Билингва", tg:"Билингва"} },
+  international: { label: {ru:"Международная", tg:"Байналмилалӣ"} },
+  stem:          { label: {ru:"STEM", tg:"STEM"} },
+};
 
 export interface NewsArticle {
   id: string;
@@ -770,7 +782,9 @@ export const ALL_STAFF: Person[] = [
 export const INSTITUTIONS: Institution[] = [
   {
     id:1, name:{ru:"Гимназия «Ситораи Дониш»", tg:"Гимназияи «Ситораи Дониш»"}, type:"cat_school", tk:"cat_school",
+    curriculum:["bilingual","state"],
     region:"dushanbe", city:{ru:"Душанбе", tg:"Душанбе"}, street:{ru:"ул. Айни 14", tg:"кӯч. Айнӣ 14"}, area:"Сино", price:800, score:4.6, rev:214,
+    geo:{lat:38.5790, lng:68.8130},
     transport:true, food:true, ver:true,
     transportInfo:{
       types:[{ru:"Школьный автобус (12 мест)", tg:"Автобуси мактабӣ (12 ҷой)"},{ru:"Микроавтобус (утро/вечер)", tg:"Микроавтобус (пагоҳӣ/бегоҳ)"}],
@@ -840,6 +854,7 @@ export const INSTITUTIONS: Institution[] = [
   {
     id:2, name:{ru:"Детский сад «Гулистон»", tg:"Боғчаи кӯдакони «Гулистон»"}, type:"cat_kg", tk:"cat_kg",
     region:"dushanbe", city:{ru:"Душанбе", tg:"Душанбе"}, street:{ru:"ул. Рудаки 45а", tg:"кӯч. Рӯдакӣ 45а"}, area:"Фирдавсӣ", price:650, score:4.3, rev:118,
+    geo:{lat:38.5470, lng:68.7610},
     transport:true, food:true, ver:true,
     transportInfo:{
       types:[{ru:"Минивэн с сопровождающим воспитателем", tg:"Минивэн бо мураббии ҳамроҳикунанда"}],
@@ -881,7 +896,9 @@ export const INSTITUTIONS: Institution[] = [
   },
   {
     id:3, name:{ru:"Лицей при ТНУ", tg:"Литсей дар назди ДМТ"}, type:"cat_school", tk:"cat_school",
+    curriculum:["state","stem"],
     region:"dushanbe", city:{ru:"Душанбе", tg:"Душанбе"}, street:{ru:"пр. Рудаки 17", tg:"хиёбони Рӯдакӣ 17"}, area:"И. Сомонӣ", price:1200, score:4.8, rev:301,
+    geo:{lat:38.5620, lng:68.7930},
     transport:false, food:true, ver:true,
     color:C.ok, age:"10–18 лет", tag:{ru:"Лучший рейтинг", tg:"Беҳтарин рейтинг"},
     coverPhoto: PHOTOS.school2,
@@ -927,6 +944,7 @@ export const INSTITUTIONS: Institution[] = [
   {
     id:4, name:{ru:"Центр «Форобиён»", tg:"Маркази «Форобиён»"}, type:"cat_center", tk:"cat_center",
     region:"dushanbe", city:{ru:"Душанбе", tg:"Душанбе"}, street:{ru:"ул. Зайниддин Сафаров 8", tg:"кӯч. Зайниддин Сафаров 8"}, area:"Шоҳмансур", price:400, score:4.1, rev:76,
+    geo:{lat:38.5735, lng:68.7760},
     transport:false, food:false, ver:false,
     color:"#C9A030", age:"любой", tag:null,
     coverPhoto: PHOTOS.classroom2,
@@ -957,7 +975,9 @@ export const INSTITUTIONS: Institution[] = [
   },
   {
     id:5, name:{ru:"Языковая школа «Зафар»", tg:"Мактаби забонии «Зафар»"}, type:"cat_center", tk:"cat_center",
+    curriculum:["international"],
     region:"dushanbe", city:{ru:"Душанбе", tg:"Душанбе"}, street:{ru:"пр. Саади Шерози 22", tg:"хиёбони Саъдии Шерозӣ 22"}, area:"Сино", price:350, score:4.4, rev:95,
+    geo:{lat:38.5810, lng:68.8080},
     transport:false, food:false, ver:true,
     color:"#9B6FE0", age:"любой", tag:{ru:"Новинка", tg:"Навигарӣ"},
     coverPhoto: PHOTOS.classroom,
@@ -988,7 +1008,9 @@ export const INSTITUTIONS: Institution[] = [
   },
   {
     id:6, name:{ru:"Мектаби нав «Дониш»", tg:"Мактаби нав «Дониш»"}, type:"cat_school", tk:"cat_school",
+    curriculum:["state"],
     region:"dushanbe", city:{ru:"Душанбе", tg:"Душанбе"}, street:{ru:"ул. Борбад 33", tg:"кӯч. Борбад 33"}, area:"Фирдавсӣ", price:950, score:4.2, rev:143,
+    geo:{lat:38.5490, lng:68.7650},
     transport:true, food:true, ver:true,
     transportInfo:{
       types:[{ru:"Школьный автобус (2 маршрута)", tg:"Автобуси мактабӣ (2 роҳ)"}],
@@ -1033,7 +1055,9 @@ export const INSTITUTIONS: Institution[] = [
   },
   {
     id:7, name:{ru:"Технологический институт «Ренессанс»", tg:"Донишкадаи технологии «Ренессанс»"}, type:"cat_uni", tk:"cat_uni",
+    curriculum:["stem"],
     region:"dushanbe", city:{ru:"Душанбе", tg:"Душанбе"}, street:{ru:"ул. Дружбы Народов 47", tg:"кӯч. Дӯстии Халқҳо 47"}, area:"И. Сомонӣ", price:1800, score:4.7, rev:189,
+    geo:{lat:38.5600, lng:68.7890},
     transport:false, food:true, ver:true,
     color:"#E0796F", age:"17+ лет", tag:{ru:"Топ выбор", tg:"Интихоби беҳтарин"},
     coverPhoto: PHOTOS.university,
@@ -1077,7 +1101,9 @@ export const INSTITUTIONS: Institution[] = [
   },
   {
     id:8, name:{ru:"Школа «Ганджи Худжанд»", tg:"Мактаби «Ганҷи Хуҷанд»"}, type:"cat_school", tk:"cat_school",
+    curriculum:["state"],
     region:"sughd", city:{ru:"Худжанд", tg:"Хуҷанд"}, street:{ru:"ул. Ленина 25", tg:"кӯч. Ленин 25"}, area:"Худжанд", price:600, score:4.5, rev:97,
+    geo:{lat:40.2833, lng:69.6333},
     transport:true, food:true, ver:true,
     transportInfo:{
       types:[{ru:"Школьный автобус по городским маршрутам", tg:"Автобуси мактабӣ дар роҳҳои шаҳрӣ"}],
@@ -1121,6 +1147,7 @@ export const INSTITUTIONS: Institution[] = [
   {
     id:9, name:{ru:"Центр «Ояндасоз»", tg:"Маркази «Ояндасоз»"}, type:"cat_center", tk:"cat_center",
     region:"khatlon", city:{ru:"Бохтар", tg:"Бохтар"}, street:{ru:"ул. Исмоили Сомони 12", tg:"кӯч. Исмоили Сомонӣ 12"}, area:"Бохтар", price:300, score:4.2, rev:41,
+    geo:{lat:37.8322, lng:68.7803},
     transport:false, food:false, ver:false,
     color:"#F09B4E", age:"любой", tag:{ru:"Новинка", tg:"Навигарӣ"},
     coverPhoto: PHOTOS.classroom,
@@ -1150,7 +1177,9 @@ export const INSTITUTIONS: Institution[] = [
 ];
 
 // ── reviews ───────────────────────────────────────────────────────────────────
-export interface Review { id:string; name:Bi; init:string; score:number; date:string; text:Bi; reply:Bi|null; instId:number; }
+// metrics — необязательный массив оценок 1-5, по одной на каждый пункт Institution.metrics
+// (тот же порядок/длина). Если присутствует, score — среднее по этому массиву.
+export interface Review { id:string; name:Bi; init:string; score:number; metrics?:number[]; date:string; text:Bi; reply:Bi|null; instId:number; }
 
 export const REVIEWS: Review[] = [
   {id:"r1", name:{ru:"Саидахон М.", tg:"Саидахон М."},     init:"С", score:5, date:"Март 2026",    text:{ru:"Отличная школа — учителя внимательные, ребёнок с удовольствием ходит. Развозка вовремя, питание разнообразное.", tg:"Мактаби олиҷаноб — омӯзгорон бодиққатанд, фарзандам бо хурсандӣ меравад. Расонидан сари вақт, ғизо гуногун."}, reply:{ru:"Спасибо за доверие! Постоянно работаем над качеством.", tg:"Ташаккур барои эътимод! Мо доимо болои сифат кор мекунем."}, instId:1},
@@ -1364,3 +1393,101 @@ export const VACANCIES: Vacancy[] = [
     date:"20 июл 2026", status:"published",
   },
 ];
+
+// ── applicants (соискатели: собственный профиль/CV/достижения) ────────────────
+// SRS FR-36 — базовый функционал соискателя в MVP: резюме + отклик на вакансию.
+// Полная CV-база с обратным поиском учреждениями — вторая волна (не здесь).
+// видимость профиля — разовая настройка, не операционный процесс (скоуп-правило MVP):
+// draft — виден только владельцу; on_response — виден только учреждению, которому
+// откликнулись (см. Application); public — виден всем в каталоге /applicants
+export type ApplicantVisibility = "draft" | "on_response" | "public";
+
+export interface Applicant {
+  id: string;
+  name: Bi;
+  photo: string;
+  position: Bi;         // желаемая должность
+  bio: Bi;
+  education: Bi[];
+  experience: Bi[];
+  skills: Bi[];
+  achievements: Achievement[];
+  email?: string;
+  phone?: string;
+  cvFileName?: string; // прототип: только имя файла, без бинарника (см. SRS — файл резюме до бэкенда+S3)
+  visibility: ApplicantVisibility;
+  hideContacts: boolean; // скрывать телефон/email до ответа учреждения в чате
+}
+
+export const DEFAULT_APPLICANT: Applicant = {
+  id: "applicant-me",
+  name: { ru: "Фаррух Тохиров", tg: "Фаррух Тоҳиров" },
+  photo: PHOTOS.pm2,
+  position: { ru: "Учитель математики", tg: "Омӯзгори математика" },
+  bio: {
+    ru: "Педагог с опытом преподавания математики в средних и старших классах. Люблю объяснять сложное простыми словами.",
+    tg: "Омӯзгор бо таҷрибаи таълими математика дар синфҳои миёна ва болоӣ. Тавзеҳ додани мураккабро бо суханони сода дӯст медорам.",
+  },
+  education: [
+    { ru: "ТГПУ им. Айни, физико-математический факультет, 2016", tg: "ДДПТ ба номи Айнӣ, факултети физика-математика, 2016" },
+  ],
+  experience: [
+    { ru: "2016–2022 — учитель математики, школа №14, Душанбе", tg: "2016–2022 — омӯзгори математика, мактаби №14, Душанбе" },
+  ],
+  skills: [
+    { ru: "Подготовка к олимпиадам", tg: "Омодасозӣ ба олимпиадаҳо" },
+    { ru: "Интерактивная доска", tg: "Тахтаи интерактивӣ" },
+  ],
+  achievements: [],
+  email: "",
+  phone: "+992 93 000-00-00",
+  visibility: "draft",
+  hideContacts: true,
+};
+
+// ── кандидаты, откликнувшиеся на вакансию (вид со стороны учреждения) ─────────
+// Прототип: демо-список без реального бэкенда/мульти-соискательской базы (в MVP
+// есть только один демо-Applicant — см. DEFAULT_APPLICANT). Не кликабельны на
+// отдельный профиль (такого профиля структурно не существует), только имя/фото/дата.
+export interface VacancyCandidate {
+  id: string;
+  vacancyId: string;
+  name: Bi;
+  photo: string;
+  appliedAt: string;
+}
+
+export const VACANCY_CANDIDATES: VacancyCandidate[] = [
+  { id:"vc1", vacancyId:"v1", name:{ru:"Фаррух Тохиров", tg:"Фаррух Тоҳиров"}, photo:PHOTOS.pm2, appliedAt:"12 июл 2026" },
+  { id:"vc2", vacancyId:"v1", name:{ru:"Нигина Саидова", tg:"Нигина Саидова"}, photo:PHOTOS.pw3, appliedAt:"10 июл 2026" },
+  { id:"vc3", vacancyId:"v1", name:{ru:"Далер Каримов", tg:"Далер Каримов"}, photo:PHOTOS.pm4, appliedAt:"8 июл 2026" },
+  { id:"vc4", vacancyId:"v2", name:{ru:"Мадина Рахимова", tg:"Мадина Раҳимова"}, photo:PHOTOS.pw1, appliedAt:"5 июл 2026" },
+  { id:"vc5", vacancyId:"v3", name:{ru:"Зарина Юсупова", tg:"Зарина Юсупова"}, photo:PHOTOS.pw5, appliedAt:"14 июл 2026" },
+  { id:"vc6", vacancyId:"v3", name:{ru:"Сино Абдуллоев", tg:"Сино Абдуллоев"}, photo:PHOTOS.pm1, appliedAt:"11 июл 2026" },
+];
+
+// ── учреждения, откликнувшиеся соискателю напрямую (кабинет пользователя) ─────
+// Институция сама вышла на связь по публичному профилю «Ищу работу» — обратное
+// направление относительно Application (там пользователь откликается на вакансию).
+export interface EmployerResponse {
+  id: string;
+  instId: number;
+  message: Bi;
+  date: string;
+}
+
+export const EMPLOYER_RESPONSES: EmployerResponse[] = [
+  { id:"er1", instId:1, message:{ru:"Добрый день! Посмотрели ваш профиль — хотим пригласить на собеседование на позицию учителя математики.", tg:"Салом! Профили шуморо дидем — мехоҳем шуморо ба мусоҳиба барои вазифаи омӯзгори математика даъват кунем."}, date:"15 июл 2026" },
+  { id:"er2", instId:4, message:{ru:"Здравствуйте! Ваш опыт нам подходит, есть открытая позиция преподавателя. Готовы обсудить условия.", tg:"Салом! Таҷрибаи шумо ба мо мувофиқ аст, вазифаи омӯзгор кушода аст. Тайёрем шартҳоро муҳокима кунем."}, date:"9 июл 2026" },
+];
+
+// ── applications (мои отклики на вакансии) ────────────────────────────────────
+// Идемпотентность мутации (.claude/rules/architecture.md): повторный отклик на
+// ту же вакансию не создаёт дубль — см. addApplication в app-state.tsx.
+export interface Application {
+  id: string;
+  applicantId: string;
+  vacancyId: string;
+  status: "sent" | "viewed" | "closed";
+  createdAt: string;
+}

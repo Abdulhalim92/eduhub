@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Newspaper, Users, Star, Settings, Plus, Pencil, Trash2, X, LogOut, Briefcase, Award, UserSquare2, Camera, type LucideIcon,
 } from "lucide-react";
 import {
-  C, FH, FB, INSTITUTIONS, ALL_STAFF, REVIEWS, NEWS_ITEMS, VACANCIES, PHOTOS, CATEGORY_META, REGION_LABEL, REGION_ORDER,
+  C, FH, FB, INSTITUTIONS, ALL_STAFF, REVIEWS, NEWS_ITEMS, VACANCIES, VACANCY_CANDIDATES, PHOTOS, CATEGORY_META, REGION_LABEL, REGION_ORDER,
   type Person, type NewsArticle, type Vacancy, type Achievement, type Alumnus, type Bi, type Region,
 } from "@/lib/data";
 import { Modal } from "@/components/ui/Modal";
@@ -390,21 +390,42 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {vacancyList.length === 0 && <p style={{ color: C.muted, fontSize: 14 }}>{t("empty.vacancies")}</p>}
-              {vacancyList.map((v) => (
-                <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 14, borderRadius: 14, border: `1px solid ${C.border}`, background: C.s1, padding: "12px 16px" }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: `${C.teal}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Briefcase size={19} style={{ color: C.teal }} />
+              {vacancyList.map((v) => {
+                const candidates = VACANCY_CANDIDATES.filter((c) => c.vacancyId === v.id);
+                return (
+                <div key={v.id} style={{ borderRadius: 14, border: `1px solid ${C.border}`, background: C.s1, padding: "12px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: `${C.teal}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Briefcase size={19} style={{ color: C.teal }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: FH, fontWeight: 700, fontSize: 14, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(v.title)}</p>
+                      <p style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                        {v.date} · <span style={{ color: v.status === "published" ? C.ok : C.gold }}>{v.status === "published" ? t({ru:"Опубликовано",tg:"Нашр шудааст"}) : t({ru:"Черновик",tg:"Пешнавис"})}</span>
+                      </p>
+                    </div>
+                    <button onClick={() => setVacancyForm(v)} style={{ background: C.s3, border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: C.sub }}><Pencil size={14} /></button>
+                    <button onClick={() => deleteVacancy(v.id)} style={{ background: C.s3, border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: C.red }}><Trash2 size={14} /></button>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontFamily: FH, fontWeight: 700, fontSize: 14, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(v.title)}</p>
-                    <p style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                      {v.date} · <span style={{ color: v.status === "published" ? C.ok : C.gold }}>{v.status === "published" ? t({ru:"Опубликовано",tg:"Нашр шудааст"}) : t({ru:"Черновик",tg:"Пешнавис"})}</span>
-                    </p>
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontFamily: FH, fontWeight: 700, color: candidates.length ? C.teal : C.muted }}>
+                      <Users size={13} /> {candidates.length} {t({ru:"откликнулись",tg:"ҷавоб доданд"})}
+                    </span>
+                    {candidates.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px 10px" }}>
+                        {candidates.map((c) => (
+                          <span key={c.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 4px", borderRadius: 999, background: C.s2, border: `1px solid ${C.border}` }}>
+                            <img src={c.photo} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
+                            <span style={{ fontSize: 12, color: C.text }}>{t(c.name)}</span>
+                            <span style={{ fontSize: 11, color: C.dim }}>· {c.appliedAt}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => setVacancyForm(v)} style={{ background: C.s3, border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: C.sub }}><Pencil size={14} /></button>
-                  <button onClick={() => deleteVacancy(v.id)} style={{ background: C.s3, border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: C.red }}><Trash2 size={14} /></button>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <Modal open={!!vacancyForm} onClose={() => setVacancyForm(null)} maxWidth={520}>

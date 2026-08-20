@@ -9,5 +9,5 @@ export function resolveConvId(instId?: number): number {
 }
 
 export function chatHref(instId?: number): string {
-  return `/chat-window?conv=${resolveConvId(instId)}`;
+  return `/messages?conv=${resolveConvId(instId)}`;
 }

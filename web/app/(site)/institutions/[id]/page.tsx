@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, MapPin, Phone, Globe, Star, CheckCircle, Award, Users, Utensils, Camera, MessageSquare, Newspaper, BookOpen, ChevronRight, Mail, UserSquare2, Medal, Trophy, PenLine, type LucideIcon } from "lucide-react";
-import { C, FH, FB, INSTITUTIONS, ALL_STAFF, REVIEWS, NEWS_ITEMS, CATEGORY_META, REGION_LABEL, AMENITY_INFO, type AmenityKey, type Review } from "@/lib/data";
+import { ArrowLeft, MapPin, Phone, Globe, Star, CheckCircle, Award, Users, Utensils, Camera, MessageSquare, Newspaper, BookOpen, ChevronRight, Mail, UserSquare2, Medal, Trophy, PenLine, Briefcase, Wallet, Clock, type LucideIcon } from "lucide-react";
+import { C, FH, FB, INSTITUTIONS, ALL_STAFF, REVIEWS, NEWS_ITEMS, VACANCIES, CATEGORY_META, REGION_LABEL, AMENITY_INFO, type AmenityKey, type Review } from "@/lib/data";
 import { chatHref } from "@/lib/chat-window";
 import { useReveal, revealStyle } from "@/lib/useReveal";
 import { AchievementModal } from "@/components/AchievementModal";
 import { AmenityModal } from "@/components/AmenityModal";
 import { Toast } from "@/components/Toast";
+import { useAppState } from "@/lib/app-state";
 import { useT } from "@/lib/i18n";
+import { SingleMap } from "@/components/InstMap";
 
-type Tab = "about"|"staff"|"gallery"|"achievements"|"alumni"|"menu"|"reviews"|"news";
+type Tab = "about"|"staff"|"gallery"|"achievements"|"alumni"|"menu"|"reviews"|"news"|"vacancies";
 
 const ACH_TIER: Record<string,{icon:LucideIcon;color:string}> = {
   gold:{icon:Medal,color:C.gold}, silver:{icon:Medal,color:C.sub}, bronze:{icon:Medal,color:C.goldD}, special:{icon:Trophy,color:C.teal},
@@ -44,8 +46,8 @@ function MetricBar({ label, value, t }:{label:string;value:number;t:(x:string)=>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5,color:C.sub,marginBottom:5,fontFamily:FH}}>
         <span>{t(label)}</span><span style={{color,fontWeight:700}}>{value.toFixed(1)}</span>
       </div>
-      <div style={{height:5,borderRadius:999,background:C.s3}}>
-        <div style={{height:"100%",borderRadius:999,background:color,width:`${pct}%`,transition:"width .5s"}}/>
+      <div style={{height:5,borderRadius:999,background:C.s3,overflow:"hidden"}}>
+        <div style={{height:"100%",width:"100%",borderRadius:999,background:color,transform:`scaleX(${pct/100})`,transformOrigin:"left",transition:"transform .5s"}}/>
       </div>
     </div>
   );
@@ -63,6 +65,7 @@ function InstitutionProfileInner() {
   const router = useRouter();
   const instId = Number(params.id);
   const t = useT();
+  const { children_: children, hasApplied, addApplication } = useAppState();
   const { ref: staffRef, visible: staffVisible } = useReveal<HTMLDivElement>();
 
   const [tab, setTab] = useState<Tab>(() => (searchParams.get("tab") as Tab) ?? "about");
@@ -72,11 +75,12 @@ function InstitutionProfileInner() {
   const [addedReviews, setAddedReviews] = useState<Review[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewName, setReviewName] = useState("");
-  const [reviewScore, setReviewScore] = useState(5);
+  const [metricScores, setMetricScores] = useState<number[]>(() => INSTITUTIONS.find(i=>i.id===instId)?.metrics.map(()=>5) ?? []);
   const [reviewText, setReviewText] = useState("");
   const [reviewToast, setReviewToast] = useState<string|null>(null);
 
   const highlightReviewId = searchParams.get("review");
+  const highlightVacancyId = searchParams.get("vacancy");
 
   useEffect(() => {
     if (!highlightReviewId || tab !== "reviews") return;
@@ -84,30 +88,44 @@ function InstitutionProfileInner() {
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightReviewId, tab]);
 
+  useEffect(() => {
+    if (!highlightVacancyId || tab !== "vacancies") return;
+    const el = document.getElementById(`vacancy-${highlightVacancyId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightVacancyId, tab]);
+
   const inst = INSTITUTIONS.find(i=>i.id===instId) ?? INSTITUTIONS[0];
   const staff = ALL_STAFF.filter(p=>p.instId===inst.id);
   const reviews = [...addedReviews, ...REVIEWS.filter(r=>r.instId===inst.id)];
   const news = NEWS_ITEMS.filter(n => n.status === "published" && n.instId === inst.id);
+  const instVacancies = VACANCIES.filter(v => v.status === "published" && v.instId === inst.id);
   const meta = CATEGORY_META[inst.tk];
   const showAlumni = inst.tk==="cat_school" || inst.tk==="cat_uni";
   const descRu = inst.description.ru;
 
+  // SRS FR-15/FR-30 — оставить отзыв может тот, у кого есть ребёнок, структурно
+  // привязанный к этому учреждению (текущий ученик или выпускник). Это факт о
+  // пользователе (ChildLink), не активная демо-роль (модель B) — иначе пользователь,
+  // переключившийся в другой раздел, терял бы право на свой же отзыв.
+  const hasConnection = children.some(c => c.instId === inst.id);
+
   function submitReview() {
-    if (!reviewName.trim() || !reviewText.trim()) return;
+    if (!reviewName.trim() || !reviewText.trim() || !hasConnection) return;
     const name = reviewName.trim();
     const text = reviewText.trim();
-    const score = reviewScore;
+    const score = Math.round((metricScores.reduce((a,b)=>a+b,0) / metricScores.length) * 10) / 10;
     setAddedReviews(prev => [{
       id: `local-${prev.length}`,
       name: { ru: name, tg: name },
       init: name[0]?.toUpperCase() ?? "?",
       score,
+      metrics: metricScores,
       date: new Date().toLocaleDateString("ru-RU"),
       text: { ru: text, tg: text },
       reply: null,
       instId: inst.id,
     }, ...prev]);
-    setReviewName(""); setReviewScore(5); setReviewText("");
+    setReviewName(""); setMetricScores(inst.metrics.map(()=>5)); setReviewText("");
     setShowReviewForm(false);
     setReviewToast(t({ ru: "Отзыв опубликован", tg: "Шарҳ нашр шуд" }));
   }
@@ -121,6 +139,7 @@ function InstitutionProfileInner() {
     {k:"menu",        label:t("tab.menu"),        icon:Utensils},
     {k:"reviews",     label:t("tab.reviews"),     icon:Star},
     {k:"news",        label:t("tab.news"),        icon:Newspaper},
+    {k:"vacancies",   label:t("nav.vacancies"),   icon:Briefcase},
   ];
 
   return (
@@ -158,7 +177,7 @@ function InstitutionProfileInner() {
       </div>
 
       {/* ── TABS ── */}
-      <div style={{borderBottom:`1px solid ${C.border}`,background:C.bg,position:"sticky",top:64,zIndex:20}}>
+      <div style={{borderBottom:`1px solid ${C.border}`,background:C.bg,position:"sticky",top:64,zIndex:40}}>
         <div style={{maxWidth:1260,margin:"0 auto",padding:"0 28px",display:"flex",gap:2,overflowX:"auto"}}>
           {TABS.map(({k,label,icon:Icon})=>(
             <button key={k} onClick={()=>{setTab(k); window.scrollTo({top:0,behavior:"auto"});}}
@@ -219,11 +238,23 @@ function InstitutionProfileInner() {
                     </div>
                   ))}
                 </div>
+                {inst.geo && (
+                  <div style={{marginTop:18}}>
+                    <SingleMap lat={inst.geo.lat} lng={inst.geo.lng} routeLabel={t({ru:"Построить маршрут",tg:"Роҳро тартиб додан"})} />
+                  </div>
+                )}
               </div>
 
               {/* metrics */}
               <div style={{borderRadius:18,border:`1px solid ${C.border}`,background:C.s1,padding:26}}>
-                <h3 style={{fontFamily:FH,fontWeight:800,fontSize:17,color:C.text,marginBottom:16}}>{t({ru:"Рейтинг по параметрам",tg:"Рейтинг аз рӯи меъёрҳо"})}</h3>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,gap:12,flexWrap:"wrap"}}>
+                  <h3 style={{fontFamily:FH,fontWeight:800,fontSize:17,color:C.text}}>{t({ru:"Рейтинг по параметрам",tg:"Рейтинг аз рӯи меъёрҳо"})}</h3>
+                  <button
+                    onClick={()=>{ setTab("reviews"); setShowReviewForm(true); window.scrollTo({top:0,behavior:"auto"}); }}
+                    style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,background:`${C.teal}18`,border:`1px solid ${C.teal}44`,color:C.teal,fontFamily:FH,fontWeight:700,fontSize:12.5,cursor:"pointer"}}>
+                    <PenLine size={13}/> {t({ru:"Оценить учреждение",tg:"Муассисаро баҳо додан"})}
+                  </button>
+                </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 28px"}}>
                   {inst.metrics.map(m=>(
                     <MetricBar key={m.label} label={m.label} value={m.v} t={t}/>
@@ -497,6 +528,7 @@ function InstitutionProfileInner() {
                 <p style={{fontFamily:FH,fontWeight:900,fontSize:52,color:C.text,lineHeight:1}}>{inst.score}</p>
                 <Stars s={inst.score} size={18}/>
                 <p style={{fontSize:13,color:C.sub,marginTop:8}}>{inst.rev} {t("common.reviews")}</p>
+                <p style={{fontSize:11,color:C.dim,marginTop:6}}>{t({ru:"9 независимых метрик",tg:"9 меъёри мустақил"})}</p>
                 <div style={{marginTop:16}}>
                   {[5,4,3,2,1].map(n=>(
                     <div key={n} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
@@ -509,24 +541,46 @@ function InstitutionProfileInner() {
                 </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
-                <div style={{display:"flex",justifyContent:"flex-end"}}>
-                  <button onClick={()=>setShowReviewForm(v=>!v)} style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",borderRadius:10,background:showReviewForm?C.s3:`${C.teal}18`,border:`1px solid ${showReviewForm?C.border:C.teal+"44"}`,color:showReviewForm?C.sub:C.teal,fontFamily:FH,fontWeight:700,fontSize:13,cursor:"pointer"}}>
-                    <PenLine size={14}/> {t({ru:"Написать отзыв",tg:"Шарҳ навиштан"})}
-                  </button>
-                </div>
+                {hasConnection ? (
+                  <div style={{display:"flex",justifyContent:"flex-end"}}>
+                    <button onClick={()=>setShowReviewForm(v=>!v)} style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",borderRadius:10,background:showReviewForm?C.s3:`${C.teal}18`,border:`1px solid ${showReviewForm?C.border:C.teal+"44"}`,color:showReviewForm?C.sub:C.teal,fontFamily:FH,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                      <PenLine size={14}/> {t({ru:"Написать отзыв",tg:"Шарҳ навиштан"})}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{borderRadius:14,border:`1px dashed ${C.border}`,background:C.s1,padding:"14px 18px",display:"flex",alignItems:"center",gap:12}}>
+                    <PenLine size={16} style={{color:C.dim,flexShrink:0}}/>
+                    <div style={{flex:1}}>
+                      <p style={{fontSize:13,color:C.sub,lineHeight:1.5}}>{t("review.needConnection")}</p>
+                      <button onClick={()=>router.push("/account")} style={{marginTop:6,background:"none",border:"none",color:C.teal,fontFamily:FH,fontWeight:700,fontSize:12.5,cursor:"pointer",padding:0}}>
+                        {t("review.linkChild")}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                {showReviewForm && (
+                {showReviewForm && hasConnection && (
                   <div style={{borderRadius:16,border:`1px solid ${C.teal}44`,background:C.s1,padding:"18px 20px",display:"flex",flexDirection:"column",gap:12}}>
                     <input value={reviewName} onChange={e=>setReviewName(e.target.value)} placeholder={t({ru:"Ваше имя",tg:"Номи шумо"})}
                       style={{padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:C.s2,color:C.text,fontFamily:FB,fontSize:14,outline:"none"}}/>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:12.5,color:C.sub,fontFamily:FH}}>{t({ru:"Оценка:",tg:"Баҳо:"})}</span>
-                      <div style={{display:"flex",gap:4}}>
-                        {[1,2,3,4,5].map(n=>(
-                          <button key={n} type="button" onClick={()=>setReviewScore(n)} aria-label={`${n}`} style={{background:"none",border:"none",cursor:"pointer",padding:2}}>
-                            <Star size={20} fill={n<=reviewScore?C.gold:"none"} stroke={n<=reviewScore?C.gold:C.dim}/>
-                          </button>
-                        ))}
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {inst.metrics.map((m,mi)=>(
+                        <div key={mi} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                          <span style={{fontSize:12.5,color:C.sub}}>{t(m.label)}</span>
+                          <div style={{display:"flex",gap:3}}>
+                            {[1,2,3,4,5].map(n=>(
+                              <button key={n} type="button" onClick={()=>setMetricScores(prev=>prev.map((v,i)=>i===mi?n:v))} aria-label={`${n}`} style={{background:"none",border:"none",cursor:"pointer",padding:1}}>
+                                <Star size={16} fill={n<=metricScores[mi]?C.gold:"none"} stroke={n<=metricScores[mi]?C.gold:C.dim}/>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:4,paddingTop:8,borderTop:`1px solid ${C.border}`}}>
+                        <span style={{fontSize:12.5,color:C.text,fontFamily:FH,fontWeight:700}}>{t("review.overall")}</span>
+                        <span style={{fontFamily:FH,fontWeight:800,color:C.gold,fontSize:14}}>
+                          {metricScores.length ? (Math.round((metricScores.reduce((a,b)=>a+b,0)/metricScores.length)*10)/10) : 0} ★
+                        </span>
                       </div>
                     </div>
                     <textarea value={reviewText} onChange={e=>setReviewText(e.target.value)} placeholder={t({ru:"Расскажите о своём опыте",tg:"Дар бораи таҷрибаи худ нақл кунед"})} rows={3}
@@ -585,6 +639,45 @@ function InstitutionProfileInner() {
               ))}
               {!news.length && <p style={{color:C.muted,fontSize:14,gridColumn:"1/-1"}}>{t("empty.news")}</p>}
             </div>
+          </div>
+        )}
+
+        {/* VACANCIES */}
+        {tab==="vacancies" && (
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            {instVacancies.length===0 ? (
+              <div style={{padding:56,borderRadius:16,border:`1px dashed ${C.border}`,textAlign:"center",color:C.muted}}>
+                <Briefcase size={28} style={{color:C.dim,margin:"0 auto 12px"}}/>
+                <p style={{fontFamily:FH,fontWeight:800,fontSize:17,color:C.text}}>{t("empty.vacancies")}</p>
+              </div>
+            ) : instVacancies.map(v=>(
+              <div key={v.id} id={`vacancy-${v.id}`} style={{borderRadius:18,border:`1px solid ${highlightVacancyId===v.id?C.teal:C.border}`,background:highlightVacancyId===v.id?`${C.teal}0f`:C.s1,padding:26,transition:"background .4s,border-color .4s"}}>
+                <h3 style={{fontFamily:FH,fontWeight:800,fontSize:17,color:C.text,marginBottom:8}}>{t(v.title)}</h3>
+                <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16}}>
+                  {v.salaryFrom && (
+                    <span style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:C.text}}>
+                      <Wallet size={14} style={{color:C.teal}}/> {v.salaryFrom}–{v.salaryTo} {t("common.perMonth")}
+                    </span>
+                  )}
+                  <span style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:C.text}}>
+                    <Clock size={14} style={{color:C.teal}}/> {t(v.employment)}
+                  </span>
+                </div>
+                <p style={{fontSize:14,color:C.sub,lineHeight:1.7,marginBottom:16}}>{t(v.description)}</p>
+                <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:18}}>
+                  {v.requirements.map((r,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:13.5,color:C.sub}}>
+                      <CheckCircle size={14} style={{color:C.ok,flexShrink:0,marginTop:2}}/> {t(r)}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={()=>{ addApplication(v.id); router.push(chatHref(inst.id)); }}
+                  style={{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",borderRadius:10,background:C.teal,color:C.overlay,fontFamily:FH,fontWeight:700,fontSize:13.5,border:"none",cursor:"pointer"}}>
+                  <MessageSquare size={14}/> {hasApplied(v.id) ? t({ru:"Вы откликнулись — открыть чат",tg:"Шумо ҷавоб додаед — чатро кушоед"}) : t({ru:"Откликнуться",tg:"Ҷавоб додан"})}
+                </button>
+              </div>
+            ))}
           </div>
         )}
 

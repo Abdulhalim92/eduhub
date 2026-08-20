@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, LocateFixed, LogOut, MapPin } from "lucide-react";
-import { C, FH, FB, CATEGORY_META, REGION_LABEL, REGION_ORDER, type CategoryKey } from "@/lib/data";
+import { C, FH, FB, REGION_LABEL, REGION_ORDER } from "@/lib/data";
 import { useAppState, type Role } from "@/lib/app-state";
 import { useT } from "@/lib/i18n";
 import { detectRegionByGPS } from "@/lib/geo";
 import { NotificationBell } from "./NotificationBell";
+import { MessagesLink } from "./MessagesLink";
 
 const GUIDE_LINKS: { href: string; key: string }[] = [
   { href: "/guide/parents", key: "nav.guide.parents" },
@@ -17,12 +18,11 @@ const GUIDE_LINKS: { href: string; key: string }[] = [
   { href: "/guide/institutions", key: "nav.guide.institutions" },
 ];
 
-const CATEGORY_KEYS: CategoryKey[] = ["cat_kg", "cat_school", "cat_center", "cat_uni"];
-
+// RBAC-роль (SRS §3) — не то же самое, что "родитель"/"соискатель": это факты о
+// пользователе (наличие ChildLink / опубликованного профиля соискателя), не роли.
+// Переключатель ниже — тестовый инструмент прототипа, не выбор личности.
 const ROLE_OPTIONS: { value: Role; key: string; href: string }[] = [
   { value: "user", key: "nav.role.user", href: "/account" },
-  { value: "parent", key: "nav.role.parent", href: "/account/parent" },
-  { value: "applicant", key: "nav.role.applicant", href: "/vacancies" },
   { value: "institution", key: "nav.role.institution", href: "/dashboard" },
 ];
 
@@ -45,7 +45,7 @@ function Dropdown({ label, active, children, width = 210 }: { label: string; act
     <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((o) => !o)}
-        style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, fontFamily: FH, color: active ? C.text : C.muted, background: active ? C.s3 : "transparent", border: "none", cursor: "pointer" }}
+        style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, fontFamily: FH, color: active ? C.text : C.muted, background: active ? C.s3 : "transparent", border: "none", cursor: "pointer", whiteSpace: "nowrap" }}
       >
         {label} <ChevronDown size={12} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
       </button>
@@ -90,7 +90,7 @@ export function NavBar() {
   }
 
   return (
-    <header style={{position:"sticky",top:0,zIndex:40,background:`${C.bg}EB`,backdropFilter:"blur(20px)",borderBottom:`1px solid ${C.border}`}}>
+    <header style={{position:"sticky",top:0,zIndex:50,background:`${C.bg}EB`,backdropFilter:"blur(20px)",borderBottom:`1px solid ${C.border}`}}>
       <div style={{maxWidth:1320,margin:"0 auto",padding:"0 18px",display:"flex",alignItems:"center",gap:4,height:64}}>
         <Link href="/" style={{display:"flex",alignItems:"center",gap:9,flexShrink:0,marginRight:6}}>
           <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
@@ -104,27 +104,15 @@ export function NavBar() {
         </Link>
 
         <nav style={{display:"flex",gap:2,alignItems:"center"}}>
-          <Link href="/" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname==="/"?C.text:C.muted,background:pathname==="/"?C.s3:"transparent"}}>
+          <Link href="/" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname==="/"?C.text:C.muted,background:pathname==="/"?C.s3:"transparent",whiteSpace:"nowrap"}}>
             {t("nav.home")}
           </Link>
-          <Link href="/search" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname==="/search"?C.text:C.muted,background:pathname==="/search"?C.s3:"transparent"}}>
+          <Link href="/search" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname==="/search"?C.text:C.muted,background:pathname==="/search"?C.s3:"transparent",whiteSpace:"nowrap"}}>
             {t("nav.search")}
           </Link>
-          <Link href="/vacancies" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname.startsWith("/vacancies")?C.text:C.muted,background:pathname.startsWith("/vacancies")?C.s3:"transparent"}}>
+          <Link href="/vacancies" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname.startsWith("/vacancies")?C.text:C.muted,background:pathname.startsWith("/vacancies")?C.s3:"transparent",whiteSpace:"nowrap"}}>
             {t("nav.vacancies")}
           </Link>
-
-          <Dropdown label={t("nav.categories")} active={pathname.startsWith("/kindergartens")||pathname.startsWith("/schools")||pathname.startsWith("/centers")||pathname.startsWith("/universities")}>
-            {CATEGORY_KEYS.map((k) => {
-              const meta = CATEGORY_META[k];
-              const Icon = meta.icon;
-              return (
-                <Link key={k} href={`/${meta.slug}`} style={{display:"flex",alignItems:"center",gap:9,padding:"11px 14px",color:C.text,fontFamily:FB,fontSize:13.5,textDecoration:"none"}}>
-                  <Icon size={15} style={{color:meta.color,flexShrink:0}}/> {t(meta.plural)}
-                </Link>
-              );
-            })}
-          </Dropdown>
 
           <Dropdown label={t("nav.guides")} active={pathname.startsWith("/guide")}>
             {GUIDE_LINKS.map((g) => (
@@ -134,7 +122,7 @@ export function NavBar() {
             ))}
           </Dropdown>
 
-          <Link href="/company" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname==="/company"?C.text:C.muted,background:pathname==="/company"?C.s3:"transparent"}}>
+          <Link href="/company" style={{padding:"7px 10px",borderRadius:8,fontSize:13.5,fontWeight:600,fontFamily:FH,color:pathname==="/company"?C.text:C.muted,background:pathname==="/company"?C.s3:"transparent",whiteSpace:"nowrap"}}>
             {t("nav.about")}
           </Link>
         </nav>
@@ -159,6 +147,7 @@ export function NavBar() {
             <button onClick={()=>setLocale("ru")} style={{padding:"7px 11px",fontSize:12.5,fontWeight:700,color:locale==="ru"?C.bg:C.muted,fontFamily:FH,background:locale==="ru"?C.teal:"none",border:"none",cursor:"pointer"}}>РУ</button>
           </div>
 
+          <MessagesLink/>
           <NotificationBell/>
 
           {role!=="guest" && cabinetHref && (

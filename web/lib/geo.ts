@@ -9,7 +9,7 @@ const REGION_CENTROIDS: Record<Region, { lat: number; lng: number }> = {
   rrp: { lat: 38.75, lng: 69.5 },
 };
 
-function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+export function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
@@ -41,6 +41,23 @@ export function detectRegionByGPS(): Promise<Region> {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve(nearestRegion(pos.coords.latitude, pos.coords.longitude)),
+      (err) => reject(err),
+      { timeout: 8000 }
+    );
+  });
+}
+
+// Точные координаты — только для сортировки «рядом со мной» в текущей сессии.
+// НЕ персистить (localStorage/app-state) и не отправлять на сервер без необходимости —
+// минимизация PII (CLAUDE.md NFR). Регион (nearestRegion) персистить можно, это не PII.
+export function detectCoords(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("geolocation unavailable"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       (err) => reject(err),
       { timeout: 8000 }
     );

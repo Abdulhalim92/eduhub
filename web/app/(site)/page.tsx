@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, ArrowRight, ChevronRight, Sparkles, SlidersHorizontal, Star, MessageCircle, Users, Building2, Briefcase } from "lucide-react";
+import { Search, ArrowRight, ChevronRight, Sparkles, SlidersHorizontal, Star, MessageCircle, Users, Building2, Briefcase, LocateFixed } from "lucide-react";
 import { C, FH, FB, INSTITUTIONS, PHOTOS, CATEGORY_META, REGION_LABEL, type CategoryKey } from "@/lib/data";
 import { InstitCard } from "@/components/InstitCard";
 import { SubjectMotifs } from "@/components/SubjectMotifs";
 import { useReveal, revealStyle } from "@/lib/useReveal";
 import { useAppState } from "@/lib/app-state";
 import { useT } from "@/lib/i18n";
+import { detectCoords, haversine } from "@/lib/geo";
 
 const CATEGORY_KEYS: CategoryKey[] = ["cat_kg", "cat_school", "cat_center", "cat_uni"];
 
@@ -25,13 +26,30 @@ export default function HomePage() {
   const [q, setQ] = useState("");
   const { region } = useAppState();
   const t = useT();
+  // точные координаты — только в памяти текущей сессии, не персистятся (минимизация PII)
+  const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
 
   function handleSearch() { router.push(q ? `/search?q=${encodeURIComponent(q)}` : "/search"); }
 
+  function locateMe() {
+    setLocating(true);
+    detectCoords()
+      .then(setMyCoords)
+      .catch(() => {})
+      .finally(() => setLocating(false));
+  }
+
+  // деградация: точные координаты → выбранный регион → вся страна (по рейтингу)
   const nearby = useMemo(() => {
+    if (myCoords) {
+      return [...INSTITUTIONS]
+        .sort((a, b) => haversine(myCoords, a.geo) - haversine(myCoords, b.geo))
+        .slice(0, 4);
+    }
     const pool = region ? INSTITUTIONS.filter(i => i.region === region) : INSTITUTIONS;
     return [...pool].sort((a,b)=>b.score-a.score).slice(0,4);
-  }, [region]);
+  }, [region, myCoords]);
 
   const { ref: statsRef, visible: statsVisible } = useReveal<HTMLDivElement>();
   const { ref: missionRef, visible: missionVisible } = useReveal<HTMLDivElement>();
@@ -97,6 +115,14 @@ export default function HomePage() {
 
       {/* ── MISSION ── */}
       <section ref={missionRef} style={{maxWidth:1260,margin:"0 auto",padding:"64px 28px 0",...revealStyle(missionVisible)}}>
+        <div style={{marginBottom:24}}>
+          <h2 style={{fontFamily:FH,fontWeight:900,fontSize:"clamp(22px,3vw,30px)",color:C.text,letterSpacing:"-.02em"}}>
+            {t({ru:"Руководства",tg:"Дастурҳо"})}
+          </h2>
+          <p style={{fontSize:14,color:C.sub,marginTop:4}}>
+            {t({ru:"Пошаговые инструкции: как пользоваться EduHub родителям, соискателям и учреждениям",tg:"Дастурҳои қадам ба қадам: чӣ гуна аз EduHub истифода баранд волидайн, ҷуяндагони кор ва муассисаҳо"})}
+          </p>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18}}>
           {[
             {
@@ -155,7 +181,7 @@ export default function HomePage() {
             const Icon = meta.icon;
             const count = INSTITUTIONS.filter(x=>x.tk===k).length;
             return (
-              <Link key={k} href={`/${meta.slug}`}
+              <Link key={k} href={`/search?type=${k}`}
                 style={{borderRadius:18,overflow:"hidden",border:`1px solid ${C.border}`,background:C.s1,cursor:"pointer",textDecoration:"none",display:"block",...revealStyle(catVisible,i*60)}}>
                 <div style={{position:"relative",height:128,overflow:"hidden"}}>
                   <img src={meta.heroPhoto} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
@@ -183,15 +209,26 @@ export default function HomePage() {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:28}}>
           <div>
             <h2 style={{fontFamily:FH,fontWeight:900,fontSize:"clamp(22px,3vw,32px)",color:C.text,letterSpacing:"-.02em"}}>
-              {region ? t({ru:"Учреждения рядом с вами", tg:"Муассисаҳо дар наздикии шумо"}) : t({ru:"Лучшие учреждения", tg:"Беҳтарин муассисаҳо"})}
+              {myCoords ? t({ru:"Учреждения рядом с вами", tg:"Муассисаҳо дар наздикии шумо"})
+                : region ? t({ru:"Учреждения в вашем регионе", tg:"Муассисаҳо дар минтақаи шумо"})
+                : t({ru:"Лучшие учреждения", tg:"Беҳтарин муассисаҳо"})}
             </h2>
             <p style={{fontSize:14,color:C.sub,marginTop:4}}>
-              {region ? t(REGION_LABEL[region]) : t({ru:"По оценкам родителей Таджикистана", tg:"Аз рӯи бақои волидайни Тоҷикистон"})}
+              {myCoords ? t({ru:"По расстоянию от вашего местоположения", tg:"Аз рӯи масофа аз ҷои шумо"})
+                : region ? t(REGION_LABEL[region])
+                : t({ru:"По оценкам родителей Таджикистана", tg:"Аз рӯи бақои волидайни Тоҷикистон"})}
             </p>
           </div>
-          <Link href="/search" style={{display:"flex",alignItems:"center",gap:5,fontFamily:FH,fontWeight:700,fontSize:13.5,color:C.teal,padding:"8px 14px",borderRadius:9,border:`1px solid ${C.teal}40`,background:`${C.teal}10`,textDecoration:"none"}}>
-            {t({ru:"Все учреждения", tg:"Ҳама муассисаҳо"})} <ChevronRight size={14}/>
-          </Link>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {!myCoords && (
+              <button onClick={locateMe} disabled={locating} style={{display:"flex",alignItems:"center",gap:6,fontFamily:FH,fontWeight:700,fontSize:13.5,color:C.sub,padding:"8px 14px",borderRadius:9,border:`1px solid ${C.border}`,background:"transparent",cursor:locating?"default":"pointer"}}>
+                <LocateFixed size={14}/> {locating ? t("nav.gpsLocating") : t({ru:"Точнее по GPS", tg:"Аниқтар аз рӯи GPS"})}
+              </button>
+            )}
+            <Link href="/search" style={{display:"flex",alignItems:"center",gap:5,fontFamily:FH,fontWeight:700,fontSize:13.5,color:C.teal,padding:"8px 14px",borderRadius:9,border:`1px solid ${C.teal}40`,background:`${C.teal}10`,textDecoration:"none"}}>
+              {t({ru:"Все учреждения", tg:"Ҳама муассисаҳо"})} <ChevronRight size={14}/>
+            </Link>
+          </div>
         </div>
         <div ref={topRef} style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:18}}>
           {nearby.map((inst,i)=>(

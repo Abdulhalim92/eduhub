@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Users, Building2, Wallet, Target, Map, Mail, ArrowRight, CheckCircle2, Briefcase } from "lucide-react";
+import { TrendingUp, Users, Building2, Wallet, Target, Map, Mail, ArrowRight, CheckCircle2, Briefcase, ShieldCheck, BadgeCheck, UserCheck } from "lucide-react";
 import { C, FH, FB, PHOTOS } from "@/lib/data";
 import { SubjectMotifs } from "@/components/SubjectMotifs";
 import { useReveal, revealStyle } from "@/lib/useReveal";
@@ -50,6 +50,24 @@ const ROADMAP = [
   { phase: { ru: "Core", tg: "Core" }, period: { ru: "Мес. 4–6", tg: "Моҳи 4–6" }, result: { ru: "9 метрик, аналитика, премиум, 500 школ, 5K DAU", tg: "9 меъёр, таҳлил, премиум, 500 мактаб, 5K DAU" } },
   { phase: { ru: "Premium", tg: "Premium" }, period: { ru: "Мес. 7–9", tg: "Моҳи 7–9" }, result: { ru: "Приложения, вакансии, 1.5K школ, 10K DAU", tg: "Барномаҳо, ҷойҳои холӣ, 1.5K мактаб, 10K DAU" } },
   { phase: { ru: "Scale", tg: "Scale" }, period: { ru: "Мес. 10–12", tg: "Моҳи 10–12" }, result: { ru: "Расширение по городам, интеграция с МОН, 2K школ, 15K DAU", tg: "Васеъшавӣ дар шаҳрҳо, ҳамгироӣ бо ВМО, 2K мактаб, 15K DAU" } },
+];
+
+const TRUST_PILLARS = [
+  {
+    icon: ShieldCheck,
+    title: { ru: "Лицензия МОН РТ", tg: "Литсензияи ВМО ҶТ" },
+    desc: { ru: "Каждое учреждение проверяется по номеру лицензии перед публикацией профиля", tg: "Ҳар як муассиса пеш аз нашри профил аз рӯи рақами литсензия санҷида мешавад" },
+  },
+  {
+    icon: UserCheck,
+    title: { ru: "Привязка к ребёнку", tg: "Алоқаманд ба фарзанд" },
+    desc: { ru: "Отзыв может оставить только родитель, чей ребёнок структурно связан с учреждением", tg: "Шарҳро танҳо волидайне гузошта метавонад, ки фарзандаш бо муассиса алоқаманд аст" },
+  },
+  {
+    icon: BadgeCheck,
+    title: { ru: "Верификация владельца профиля", tg: "Тасдиқи соҳиби профил" },
+    desc: { ru: "Представитель учреждения подтверждает полномочия документом до публикации", tg: "Намояндаи муассиса пеш аз нашр ваколати худро бо ҳуҷҷат тасдиқ мекунад" },
+  },
 ];
 
 const VISION = [
@@ -117,6 +135,30 @@ export default function AboutPage() {
               <p style={{ fontFamily: FH, fontWeight: 700, fontSize: 12.5, color: C.teal, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 8 }}>{t(m.l)}</p>
               <p style={{ fontFamily: FH, fontWeight: 900, fontSize: 32, color: C.text, marginBottom: 6 }}>{m.v}</p>
               <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.5 }}>{t(m.d)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── TRUST / METHODOLOGY ── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 28px 56px" }}>
+        <h2 style={{ fontFamily: FH, fontWeight: 800, fontSize: 20, color: C.text, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+          <ShieldCheck size={19} style={{ color: C.teal }} /> {t({ ru: "Методология проверки", tg: "Методологияи санҷиш" })}
+        </h2>
+        <p style={{ fontSize: 13.5, color: C.sub, marginBottom: 20, maxWidth: 640, lineHeight: 1.6 }}>
+          {t({
+            ru: "Рейтинг нельзя купить: платный тариф учреждения влияет только на видимость в поиске, но никогда — на значение оценки. Оценка формируется только 9 независимыми метриками из верифицированных отзывов.",
+            tg: "Рейтингро харидан мумкин нест: тарифи пулакии муассиса танҳо ба намоён будан дар ҷустуҷӯ таъсир мерасонад, аммо ҳеҷ гоҳ — ба арзиши баҳо. Баҳо танҳо аз 9 меъёри мустақил аз шарҳҳои тасдиқшуда ташкил мешавад.",
+          })}
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+          {TRUST_PILLARS.map((p) => (
+            <div key={p.title.ru} style={{ borderRadius: 18, border: `1px solid ${C.border}`, background: C.s1, padding: 22 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 11, background: `${C.teal}18`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                <p.icon size={18} style={{ color: C.teal }} />
+              </div>
+              <h3 style={{ fontFamily: FH, fontWeight: 700, fontSize: 14, color: C.text, marginBottom: 6 }}>{t(p.title)}</h3>
+              <p style={{ fontSize: 12.5, color: C.sub, lineHeight: 1.55 }}>{t(p.desc)}</p>
             </div>
           ))}
         </div>
