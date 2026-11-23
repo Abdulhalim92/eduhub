@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full bg-canvas">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+  <title>Кабинет центра · ЛИНИЯ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="src/js/tailwind-config.js?v=20261123082931"></script>
+  <link rel="stylesheet" href="src/css/app.css?v=20261123082931">
+  <!-- общее состояние mock-данных с index.html (localStorage); сброс — кнопка «Сбросить демо» -->
+  <script>window.LINIYA_SYNC = true;</script>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased overflow-hidden select-none">
+
+  <!-- Режим поддержки: вход из кабинета платформы. Виден только при ?support=1; действия записываются в журнал аудита -->
+  <div id="supportBanner" class="hidden h-10 bg-[#1E2028] text-white px-6 flex items-center justify-between flex-shrink-0 z-40 border-b border-amber-500/20 shadow-md">
+    <div class="flex items-center gap-2.5 text-xs">
+      <span class="text-orange-500 font-bold text-sm animate-pulse">((•))</span>
+      <span class="font-semibold text-orange-400">Режим поддержки SuperAdmin</span>
+      <span class="text-slate-500">·</span>
+      <span class="text-slate-300">Вы вошли в кабинет: <strong id="supportCenterName"></strong> (действия записываются в журнал аудита)</span>
+    </div>
+    <button onclick="exitSupport()" class="flex items-center gap-1.5 px-3 py-1 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-200 text-xs font-medium rounded-lg transition active:scale-95">
+      <span>Выйти в кабинет платформы</span>
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+    </button>
+  </div>
+
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- ==================== САЙДБАР ЦЕНТРА ==================== -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-4 flex-shrink-0 z-20">
+      <div class="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto pr-1">
+        <!-- Текущий центр: логотип и тариф подставляются из api.cabinet.profile -->
+        <div class="flex items-center gap-3 px-2 py-2">
+          <img id="sideCenterLogo" src="" alt="" class="w-10 h-10 rounded-xl bg-white flex-shrink-0">
+          <div class="leading-tight min-w-0">
+            <div id="sideCenterName" class="text-sm font-bold text-slate-900 truncate">Загрузка…</div>
+            <div id="sideCenterPlan" class="text-[11px] text-slate-400 truncate">Кабинет центра</div>
+          </div>
+        </div>
+
+        <!-- Пункты меню строятся из зарегистрированных экранов (renderNav) -->
+        <nav id="centerNav" class="flex flex-col gap-1 text-[13px]"></nav>
+      </div>
+
+      <div class="flex flex-col gap-3 pt-3 border-t border-slate-100">
+        <a href="index.html#/centers" class="flex items-center gap-2.5 text-xs text-slate-500 hover:text-slate-900 transition">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+          <span>Админка платформы</span>
+        </a>
+        <div class="flex items-center gap-2.5 pt-1">
+          <div id="userAvatar" class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs flex-shrink-0"></div>
+          <div class="leading-tight truncate">
+            <div id="userName" class="text-xs font-semibold text-slate-900 truncate"></div>
+            <div class="text-[10px] text-slate-400 truncate">Владелец центра</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==================== ОСНОВНАЯ ОБЛАСТЬ ==================== -->
+    <div class="flex-1 flex flex-col overflow-hidden relative">
+      <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between flex-shrink-0 z-10 gap-4">
+        <h1 id="pageTitle" class="text-lg font-extrabold text-slate-900 tracking-tight whitespace-nowrap"></h1>
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="hidden md:inline text-[11px] text-slate-400 whitespace-nowrap">Демо: центр</span>
+          <select id="centerSwitcher" onchange="openCenter(Number(this.value))" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none hover:bg-slate-100 cursor-pointer max-w-[16rem] truncate"></select>
+          <button id="resetDemoBtn" onclick="resetDemo()" class="hidden px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition whitespace-nowrap">Сбросить демо</button>
+        </div>
+      </header>
+
+      <div id="viewport" class="flex-1 relative overflow-hidden flex"></div>
+      <div id="modalRoot"></div>
+      <div id="menuRoot"></div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none"></div>
+
+  <!-- Модули: ядро (api, ui, state) → оболочка кабинета → общие компоненты → экраны → center-main. Классические скрипты, чтобы работало по file:// -->
+  <script src="src/js/core/api.js?v=20261123082931"></script>
+  <script src="src/js/core/ui.js?v=20261123082931"></script>
+  <script src="src/js/core/state.js?v=20261123082931"></script>
+  <script src="src/js/core/center-app.js?v=20261123082931"></script>
+  <script src="src/js/components/modal.js?v=20261123082931"></script>
+  <script src="src/js/components/menu.js?v=20261123082931"></script>
+  <script src="src/js/components/pager.js?v=20261123082931"></script>
+  <script src="src/js/components/dialogs.js?v=20261123082931"></script>
+  <script src="src/js/components/credentials.js?v=20261123082931"></script>
+  <script src="src/js/components/cab-ui.js?v=20261123082931"></script>
+  <script src="src/js/components/course-cover.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-dashboard.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-profile.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-users.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-staff.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-branches.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-courses.js?v=20261123082931"></script>
+  <script src="src/js/views/shared/course-page.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-groups.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-schedule.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-rewards.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-coin-rules.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-analytics.js?v=20261123082931"></script>
+  <script src="src/js/views/cabinet/center-balance.js?v=20261123082931"></script>
+  <script src="src/js/center-main.js?v=20261123082931"></script>
+</body>
+</html>

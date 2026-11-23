@@ -1,0 +1,50 @@
+/* Custom Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+input, textarea, select { -webkit-user-select: text; user-select: text; }
+/* таблицы: тонированная шапка и единые отступы ячеек */
+main table th, main table td { padding-left: .75rem; padding-right: .75rem; white-space: nowrap; }
+main table thead th { background: #E6EDF3; color: #5B6F82; font-weight: 600; padding-top: .7rem; padding-bottom: .7rem; }
+main table thead th:first-child { border-top-left-radius: .75rem; border-bottom-left-radius: .75rem; }
+main table thead th:last-child { border-top-right-radius: .75rem; border-bottom-right-radius: .75rem; }
+main table thead tr { border-bottom: 0; }
+#view-churn td:first-child, #view-expiring td:first-child { white-space: normal; min-width: 14rem; }
+#view-centers td:first-child, #view-billing td:first-child { white-space: normal; }
+main h1 { color: #0F1B2D; }
+.animate-fadeIn { animation: fadeIn 0.18s ease-out forwards; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Экран прокручивается целиком: карточки внутри flex-колонки не сжимаются под высоту окна
+   (элементы с overflow по умолчанию могут сжаться до нуля) и не обрезают содержимое. */
+main.view-panel > * { flex-shrink: 0; }
+main.view-panel > .flex-1 { flex: 0 0 auto; }
+main.view-panel { padding-bottom: 3rem; }
+
+/* таблицы: столбцы визуально разделены (вертикальные линии между ячейками) */
+main table th:not(:last-child), main table td:not(:last-child) { border-right: 1px solid #C5D2DD; }
+main table thead th:not(:last-child) { border-right-color: #AFC0CF; }
+
+/* таблица на всю ширину карточки (без внутренних отступов карточки): отступы у первого и последнего столбца */
+table.edge-table th:first-child, table.edge-table td:first-child { padding-left: 1.5rem; }
+table.edge-table th:last-child, table.edge-table td:last-child { padding-right: 1.5rem; }
+
+/* ---- тёмный сайдбар по референсу «Прототип.jpeg»: фон #2D384A, активный пункт — светлая подложка ---- */
+aside { background: #2D384A !important; border-color: #243044 !important; box-shadow: none !important; }
+aside .text-slate-900, aside .text-slate-800 { color: #FFFFFF; }
+aside .text-slate-600, aside .text-slate-500 { color: #C9D4E0; }
+aside .text-slate-400 { color: #8FA2B8; }
+aside .border-slate-100, aside .border-slate-200 { border-color: rgba(255,255,255,.12); }
+aside .bg-slate-50, aside .bg-slate-100, aside .bg-slate-200 { background-color: rgba(255,255,255,.08); }
+aside .hover\:bg-slate-50:hover, aside .hover\:bg-slate-100:hover { background-color: rgba(255,255,255,.10); }
+aside .hover\:text-slate-600:hover, aside .hover\:text-slate-900:hover { color: #FFFFFF; }
+aside .bg-brand-light { background-color: rgba(255,255,255,.14) !important; }
+aside .text-brand { color: #FFFFFF !important; }
+aside .bg-indigo-100 { background-color: rgba(255,255,255,.18); }
+aside .bg-brand { background-color: #3B556E; }
+aside #userAvatar { background-color: rgba(255,255,255,.16); color: #fff; }
+::-webkit-scrollbar-thumb { background: #B5C3D0; }
