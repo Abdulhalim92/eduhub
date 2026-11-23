@@ -1,0 +1,19 @@
+# локальный контекст агента и снимки хука PreCompact
+CLAUDE.local.md
+.claude/settings.local.json
+# IDE и системные файлы
+.idea/
+.DS_Store
+# временные файлы тестов и отладки
+_*.html
+
+# системный навык, который Claude Code пересоздаёт в корне сам (копия лежит в .claude/skills/)
+/skills/
+
+# сборка спецификации: промежуточный Markdown
+docs/spec/build/
+# Added by code-review-graph
+.code-review-graph/
+
+# производные графы знаний (пересоздаются: graphify update . / code-review-graph build)
+graphify-out/

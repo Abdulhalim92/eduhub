@@ -1,0 +1,13 @@
+# Что не нужно в графе code-review-graph: артефакты, бинарники, архив, выгрузки, служебные каталоги
+graphify-out/
+.code-review-graph/
+.idea/
+docs/spec/archive/
+docs/spec/build/
+docs/spec/reference.docx
+docs/design/
+*.docx
+*.jpeg
+*.jpg
+src/assets/
+.claude/skills/

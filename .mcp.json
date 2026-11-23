@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "/Users/abdulhalim/.local/bin/code-review-graph",
+      "args": [
+        "serve"
+      ],
+      "cwd": "/Users/abdulhalim/Desktop/Центр",
+      "type": "stdio"
+    },
+    "figma": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "figma-developer-mcp@0.13.2",
+        "--stdio"
+      ],
+      "env": {
+        "FIGMA_API_KEY": "${FIGMA_API_KEY}"
+      },
+      "type": "stdio"
+    }
+  }
+}
