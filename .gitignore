@@ -10,8 +10,6 @@ _*.html
 # системный навык, который Claude Code пересоздаёт в корне сам (копия лежит в .claude/skills/)
 /skills/
 
-# сборка спецификации: промежуточный Markdown
-docs/spec/build/
 # Added by code-review-graph
 .code-review-graph/
 
