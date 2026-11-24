@@ -10,11 +10,13 @@
 - **Требования** — `docs/spec/src/` (Markdown, источник правды); выгрузка `docs/spec/Specifikaciya_Liniya_v2_0.docx`, прежние версии в `docs/spec/archive/`.
 - **Оформление экранов** — `docs/design/ui-principles.md`; референсы — `docs/design/references/`, макеты — `docs/design/mockups/`.
 - **Контракт методов данных** — шапка `src/js/core/api.js` (таблица «метод → REST»).
+- **Бэкенд на Go** — `backend/` (свой `go.mod`, модульный монолит, Clean Architecture); правила — `.claude/rules/go.md`, `db.md`, `migrations.md`, `security.md`, `architecture.md`, `money.md`; агенты — `.claude/agents/go-*`, `db-*`, `sec-auditor`, `arch-sysdesign`.
 
 ## Команды
 
 - Тесты: `sh tests/run.sh` (Chrome headless, два набора: кабинет платформы — `tests/suite.js` поверх `index.html`, кабинет центра — `tests/suite-center.js` поверх `eduhub.html`, вход — `tests/suite-login.js` поверх `login.html`; печатает только упавшие и общий итог).
 - После правок js/css: `sh tools/bump-version.sh` (ставит `?v=` в `index.html`, `eduhub.html` и `login.html`, иначе браузер показывает кеш).
+- Бэкенд (из `backend/`, когда появится код): `go build ./...`, `go vet ./...`, `go test ./... -race -count=1`, `golangci-lint run`, `govulncheck ./...`.
 - Спецификация: `python3 tools/build-spec.py` (проверка ID, ссылок, полей + сборка `.docx`; `--check` — только проверка). Нужны pandoc (`pip install pypandoc_binary`) и python-docx.
 - Скриншот: `chrome --headless=new --window-size=1440,900 --virtual-time-budget=8000 --screenshot=out.png "file://$PWD/index.html#/<экран>"`.
 - В тестах: `apiConfig.latencyMs = 0`, `PAGE_SIZE = 100` (пагинацию проверяет отдельный блок), после `await go(...)` давать `await sleep(...)`.
