@@ -7,7 +7,8 @@
 Кликабельный HTML-прототип панели SuperAdmin платформы «Линия» (Multi-Tenant SaaS для учебных центров) и кабинета центра (две страницы: `index.html` и `eduhub.html`). Бэкенда нет: данные отдаёт mock-слой `api` в памяти страницы. Язык интерфейса — русский, валюта — сомони.
 
 Где что лежит:
-- **Требования** — `docs/spec/src/` (Markdown, источник правды); выгрузка `docs/spec/Specifikaciya_Liniya_v2_0.docx`, прежние версии в `docs/spec/archive/`.
+- **Требования** — `docs/spec/src/` (Markdown, источник правды); выгрузка `docs/spec/Specifikaciya_Liniya_v2_4.docx`, прежние версии в `docs/spec/archive/`.
+- **ТЗ на бэкенд** — `docs/tz/` (индекс `README.md`, трассировка `85-traceability.md`); анализ конкурентов — `docs/analysis/competitors.md`. При изменении спецификации обновлять ТЗ и трассировку.
 - **Оформление экранов** — `docs/design/ui-principles.md`; референсы — `docs/design/references/`, макеты — `docs/design/mockups/`.
 - **Контракт методов данных** — шапка `src/js/core/api.js` (таблица «метод → REST»).
 - **Бэкенд на Go** — `backend/` (свой `go.mod`, модульный монолит, Clean Architecture); правила — `.claude/rules/go.md`, `db.md`, `migrations.md`, `security.md`, `architecture.md`, `money.md`; агенты — `.claude/agents/go-*`, `db-*`, `sec-auditor`, `arch-sysdesign`.
