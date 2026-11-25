@@ -1,0 +1,29 @@
+import { useTranslation } from 'react-i18next'
+import type { CentersList } from '@/api'
+import { StatTile } from '@/components/StatTile'
+import { formatNumber } from '@/lib/format'
+
+/** Плитки реестра (PLT-CTR-010): всего на платформе, активные подписки, новые за месяц, в овердрафте. */
+export function CentersTiles({ data }: { data: CentersList | undefined }) {
+  const { t } = useTranslation()
+  const v = (n: number | undefined) => (n === undefined ? '—' : formatNumber(n))
+  const overdraft = data?.meta.overdraft
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <StatTile label={t('centers.tiles.total')} value={v(data?.platformTotal)} sub={t('centers.tiles.totalSub')} />
+      <StatTile label={t('centers.tiles.subscriptions')} value={v(data?.meta.activeSubs)} sub={t('centers.tiles.subscriptionsSub')} />
+      <StatTile
+        label={t('centers.tiles.newMonth')}
+        value={data ? t('centers.tiles.newMonthValue', { count: data.meta.newMonth }) : '—'}
+        sub={t('centers.tiles.newMonthSub')}
+        valueClassName="text-emerald-600"
+      />
+      <StatTile
+        label={t('centers.tiles.overdraft')}
+        value={v(overdraft)}
+        sub={overdraft ? t('centers.tiles.overdraftSub') : t('centers.tiles.overdraftNone')}
+        valueClassName={overdraft === undefined ? undefined : overdraft ? 'text-rose-600' : 'text-emerald-600'}
+      />
+    </div>
+  )
+}
