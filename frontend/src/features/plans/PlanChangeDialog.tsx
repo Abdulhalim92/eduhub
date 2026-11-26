@@ -4,6 +4,7 @@
    Пока счёт открыт (BR-007), вместо выбора тарифа — действия с этим счётом. Вместимость и прочие правила проверяет сервер (BR-008). */
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { errorMessage, isApiError, type AuditEntry, type CenterDto, type InvoiceDto, type PlanChangeInfo, type PlanOption, type UsageItem } from '@/api'
@@ -20,13 +21,16 @@ import { CancelInvoiceDialog } from '@/features/billing/CancelInvoiceDialog'
 import { paidMessage } from '@/features/billing/paid-message'
 import { PaymentConfirmDialog } from '@/features/billing/PaymentConfirmDialog'
 import { PayFromBalanceConfirm } from '@/features/finance/PayFromBalanceConfirm'
-import { formatDateTime, formatDay, formatMoney, formatSignedMoney } from '@/lib/format'
+import { formatDateTime, formatDay, formatMoney } from '@/lib/format'
 import { applyServerErrors } from '@/lib/server-errors'
 import { cn } from '@/lib/utils'
 
 const sectionTitle = 'text-[11px] font-bold tracking-wider text-slate-400 uppercase'
 
-export function PlanChangeDialog({ centerId, onClose }: { centerId: number | null; onClose: () => void }) {
+/** Предвыбор из «Центры у лимита»: тариф и причина подставлены, их можно поправить. */
+export type PlanChangePreset = { planId: string; reason: string }
+
+export function PlanChangeDialog({ centerId, preset, onClose }: { centerId: number | null; preset?: PlanChangePreset | null; onClose: () => void }) {
   const { t } = useTranslation()
   const info = usePlanChangeInfo(centerId)
   const data = info.data && info.data.center.id === centerId ? info.data : undefined
@@ -40,7 +44,7 @@ export function PlanChangeDialog({ centerId, onClose }: { centerId: number | nul
   return (
     <>
       <Dialog open={centerId !== null} onOpenChange={open => !open && !mutation.isPending && onClose()}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto p-6 sm:max-w-2xl">
+        <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-extrabold text-heading">{t('planChange.title', { name: c?.name ?? '…' })}</DialogTitle>
             <DialogDescription>{c ? t('planChange.meta', { city: c.city, owner: c.owner, phone: c.phone }) : ' '}</DialogDescription>
@@ -62,7 +66,14 @@ export function PlanChangeDialog({ centerId, onClose }: { centerId: number | nul
                 />
               ) : (
                 // key: после смены тарифа (или отмены счёта) форма начинается заново
-                <PlanForm key={`${data.center.plan}-${data.options.length}`} info={data} mutation={mutation} onDone={onClose} onRefresh={() => info.refetch()} />
+                <PlanForm
+                  key={`${data.center.plan}-${data.options.length}`}
+                  info={data}
+                  preset={preset}
+                  mutation={mutation}
+                  onDone={onClose}
+                  onRefresh={() => info.refetch()}
+                />
               )}
               <History items={data.history} />
             </div>
@@ -112,83 +123,100 @@ function CurrentPlan({ c }: { c: CenterDto }) {
   )
 }
 
+/** Подписи использования лимитов по ключу (у сервера подпись «Хранилище, ГБ» — для фразы нужна единица после числа). */
+const usageText = (t: TFunction, u: UsageItem) => t(`planChange.usage2.${u.key}`, { used: u.used, limit: u.limit })
+
+/** Тариф, в который центр помещается: цена и разница словами, можно ли оплатить с баланса, что будет занято после перехода. */
 function OptionCard({ o, checked, onSelect }: { o: PlanOption; checked: boolean; onSelect: () => void }) {
   const { t } = useTranslation()
   return (
     <ChoiceCard
       checked={checked}
-      disabled={!o.fits}
       onSelect={onSelect}
-      title={
-        <>
-          {o.name}
-          {o.recommended && (
-            <>
-              {' '}
-              <StatusBadge tone="emerald">{t('planChange.recommended')}</StatusBadge>
-            </>
-          )}
-          {o.delta < 0 && (
-            <>
-              {' '}
-              <StatusBadge tone="slate">{t('planChange.downgrade')}</StatusBadge>
-            </>
-          )}
-          {!o.fits && (
-            <>
-              {' '}
-              <StatusBadge tone="rose">{t('planChange.doesNotFit')}</StatusBadge>
-            </>
-          )}
-        </>
-      }
+      title={o.name}
       aside={
-        <span className="text-right whitespace-nowrap">
-          <span className="block text-xs font-extrabold text-heading">
-            {o.price ? t('planChange.perMonth', { price: formatMoney(o.price) }) : t('planChange.freeCap')}
-          </span>
-          <span className={cn('block text-[11px] font-semibold', o.delta > 0 ? 'text-emerald-600' : 'text-slate-500')}>{formatSignedMoney(o.delta)}</span>
-          {o.price > 0 && o.fits && (
-            <span className={cn('mt-0.5 block text-[10px]', o.payable ? 'text-emerald-600' : 'text-slate-400')}>
-              {o.payable ? t('planChange.payable') : t('planChange.notPayable')}
-            </span>
-          )}
+        <span className="text-xs font-extrabold whitespace-nowrap text-heading">
+          {o.price ? t('planChange.perMonth', { price: formatMoney(o.price) }) : t('planChange.freeCap')}
         </span>
       }
     >
-      <span className="flex flex-wrap gap-1.5">
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {o.recommended && <StatusBadge tone="emerald">{t('planChange.recommended')}</StatusBadge>}
+        {o.delta !== 0 && (
+          <span className={cn('font-medium', o.delta < 0 ? 'text-slate-600' : 'text-slate-700')}>
+            {t(o.delta < 0 ? 'planChange.cheaper' : 'planChange.pricier', { value: formatMoney(Math.abs(o.delta)) })}
+          </span>
+        )}
+      </span>
+      {o.price > 0 && (
+        <span className={cn('mt-1 block', o.payable ? 'text-emerald-700' : 'text-slate-500')}>
+          {o.payable ? `✓ ${t('planChange.payableHint')}` : t('planChange.notPayableHint')}
+        </span>
+      )}
+      <span className="mt-2 block text-slate-500">{t('planChange.afterTitle')}</span>
+      <span className="mt-1 flex flex-wrap gap-1.5">
         {o.after.map(u => (
           <span
             key={u.key}
-            className={cn(
-              'rounded-md px-1.5 py-0.5 text-[11px] font-semibold',
-              u.used > u.limit ? 'bg-rose-100 text-rose-700' : u.pct >= 80 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600',
-            )}
+            className={cn('rounded-md px-1.5 py-0.5 text-[11px] font-medium', u.pct >= 80 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700')}
           >
-            {u.label} {u.used}/{u.limit}
+            {usageText(t, u)}
+            {u.pct >= 80 && ` · ${u.pct}%`}
           </span>
         ))}
       </span>
-      {!o.fits && (
-        <span className="mt-2 block text-rose-600">
-          {t('planChange.exceeded', { list: o.exceeded.map(u => `${u.label.toLowerCase()} ${u.used} > ${u.limit}`).join('; ') })}
-        </span>
-      )}
     </ChoiceCard>
+  )
+}
+
+/** Тарифы, в которые центр не помещается (BR-008): свёрнуты в один блок с короткой причиной — не мешают выбору. */
+function UnfitPlans({ options }: { options: PlanOption[] }) {
+  const { t } = useTranslation()
+  if (!options.length) return null
+  return (
+    <details className="group rounded-xl border border-slate-200 bg-slate-50/60 text-[11px]">
+      <summary className="cursor-pointer list-none px-3 py-2.5 font-semibold text-slate-600 select-none">
+        <span className="mr-1.5 inline-block transition group-open:rotate-90" aria-hidden>
+          ›
+        </span>
+        {t('planChange.unfitTitle', { names: options.map(o => o.name).join(', ') })}
+      </summary>
+      <div className="flex flex-col gap-2 border-t border-slate-200 px-3 py-2.5">
+        <p className="text-slate-500">{t('planChange.unfitHint')}</p>
+        <ul className="flex flex-col gap-2">
+          {options.map(o => (
+            <li key={o.id}>
+              <span className="font-semibold text-slate-700">
+                {o.name} · {o.price ? t('planChange.perMonth', { price: formatMoney(o.price) }) : t('planChange.freeCap')}
+              </span>
+              <span className="block text-rose-600">
+                {o.exceeded.map(u => t(`planChange.over.${u.key}`, { used: u.used, limit: u.limit })).join('; ')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
   )
 }
 
 type PayMode = 'invoice' | 'balance' | 'defer'
 type Form = { plan: string; reason: string; payMode: PayMode; deferConfirmed: boolean; payment: string }
 
-type PlanFormProps = { info: PlanChangeInfo; mutation: ReturnType<typeof useRequestPlanChange>; onDone: () => void; onRefresh: () => void }
+type PlanFormProps = {
+  info: PlanChangeInfo
+  preset?: PlanChangePreset | null
+  mutation: ReturnType<typeof useRequestPlanChange>
+  onDone: () => void
+  onRefresh: () => void
+}
 
-function PlanForm({ info, mutation, onDone, onRefresh }: PlanFormProps) {
+function PlanForm({ info, preset, mutation, onDone, onRefresh }: PlanFormProps) {
   const { t } = useTranslation()
   const { center: c, options } = info
-  const initial = options.find(o => o.recommended && o.fits) ?? options.find(o => o.fits)
+  const initial = options.find(o => o.id === preset?.planId && o.fits) ?? options.find(o => o.recommended && o.fits) ?? options.find(o => o.fits)
   const { register, handleSubmit, control, setValue, setError, clearErrors, formState } = useForm<Form>({
-    defaultValues: { plan: initial?.id ?? '', reason: '', payMode: 'invoice', deferConfirmed: false, payment: '' },
+    defaultValues: { plan: initial?.id ?? '', reason: preset?.reason ?? '', payMode: 'invoice', deferConfirmed: false, payment: '' },
   })
   const errors = formState.errors
   const [planId, payMode, deferConfirmed] = useWatch({ control, name: ['plan', 'payMode', 'deferConfirmed'] })
@@ -260,14 +288,24 @@ function PlanForm({ info, mutation, onDone, onRefresh }: PlanFormProps) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
       <fieldset className="flex flex-col gap-2">
         <legend className={cn(sectionTitle, 'mb-2')}>{t('planChange.newPlan')}</legend>
-        {options.length ? (
-          <div role="radiogroup" aria-label={t('planChange.newPlan')} className="flex flex-col gap-2">
-            {options.map(o => (
-              <OptionCard key={o.id} o={o} checked={o.id === planId} onSelect={() => pickPlan(o)} />
-            ))}
-          </div>
-        ) : (
+        {/* сначала то, что можно выбрать; неподходящие — одним свёрнутым блоком ниже */}
+        {!options.length ? (
           <p className="text-xs text-slate-500">{t('planChange.noOptions')}</p>
+        ) : (
+          <>
+            {options.some(o => o.fits) ? (
+              <div role="radiogroup" aria-label={t('planChange.newPlan')} className="flex flex-col gap-2">
+                {options
+                  .filter(o => o.fits)
+                  .map(o => (
+                    <OptionCard key={o.id} o={o} checked={o.id === planId} onSelect={() => pickPlan(o)} />
+                  ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">{t('planChange.noFitting')}</p>
+            )}
+            <UnfitPlans options={options.filter(o => !o.fits)} />
+          </>
         )}
         {errors.plan && <span role="alert" className="text-[11px] text-rose-600">{errors.plan.message}</span>}
       </fieldset>

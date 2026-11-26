@@ -5,11 +5,12 @@ import { Link } from 'react-router'
 import type { NavItem } from '@/app/navigation'
 import { cn } from '@/lib/utils'
 
+/** Один и тот же сайдбар: постоянный слева на широких экранах и в шторке мобильного меню (AppShell). */
 export function Sidebar({ header, children, footer }: { header: ReactNode; children: ReactNode; footer: ReactNode }) {
   const { t } = useTranslation()
   return (
-    <aside className="flex w-64 shrink-0 flex-col justify-between border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+    <aside className="flex h-full w-64 shrink-0 flex-col justify-between border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pr-1">
         {header}
         <nav aria-label={t('layout.mainNav')} className="flex flex-col gap-1 text-[13px]">
           {children}

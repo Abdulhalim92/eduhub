@@ -19,8 +19,8 @@ describe('кабинет платформы', () => {
   })
 
   it('неперенесённый экран показывает заглушку с файлом прототипа', () => {
-    renderRoute('/platform/moderation')
-    expect(screen.getByText('Источник: src/js/views/platform/moderation.js')).toBeInTheDocument()
+    renderRoute('/platform/plans')
+    expect(screen.getByText('Источник: src/js/views/platform/plans.js')).toBeInTheDocument()
   })
 
   it('меню: 14 пунктов в порядке прототипа, без сырых ключей перевода', () => {

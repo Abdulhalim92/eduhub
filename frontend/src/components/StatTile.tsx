@@ -16,10 +16,10 @@ export function StatTile({
   subClassName?: string
 }) {
   return (
-    <Panel className="p-5 transition hover:border-brand/40">
+    <Panel className="p-4 transition hover:border-brand/40 sm:p-5">
       <div className="text-xs font-medium text-slate-500">{label}</div>
-      <div className={cn('mt-2 text-3xl font-extrabold text-heading', valueClassName)}>{value}</div>
-      <div className={cn('mt-2 text-xs text-slate-500', subClassName)}>{sub}</div>
+      <div className={cn('mt-2 text-2xl font-extrabold text-heading sm:text-3xl', valueClassName)}>{value}</div>
+      <div className={cn('mt-2 text-[11px] text-slate-500 sm:text-xs', subClassName)}>{sub}</div>
     </Panel>
   )
 }

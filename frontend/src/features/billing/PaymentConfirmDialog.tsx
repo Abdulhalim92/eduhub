@@ -26,7 +26,7 @@ export function PaymentConfirmDialog({ invoiceId, onClose, onPaid }: Props) {
   const inv = invoice.data && invoice.data.id === invoiceId ? invoice.data : undefined
   return (
     <Dialog open={invoiceId !== null} onOpenChange={open => !open && !mutation.isPending && onClose()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto p-6 sm:max-w-2xl">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-base font-extrabold text-heading">{t('billing.confirm.title')}</DialogTitle>
           <DialogDescription>{inv ? t('billing.confirm.sub', { id: inv.id, name: inv.centerName }) : invoiceId}</DialogDescription>

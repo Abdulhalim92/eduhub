@@ -9,7 +9,7 @@ export function CentersTiles({ data }: { data: CentersList | undefined }) {
   const v = (n: number | undefined) => (n === undefined ? '—' : formatNumber(n))
   const overdraft = data?.meta.overdraft
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       <StatTile label={t('centers.tiles.total')} value={v(data?.platformTotal)} sub={t('centers.tiles.totalSub')} />
       <StatTile label={t('centers.tiles.subscriptions')} value={v(data?.meta.activeSubs)} sub={t('centers.tiles.subscriptionsSub')} />
       <StatTile

@@ -87,9 +87,70 @@ export interface CenterDto {
   staffPct: number
   usage: UsageItem[]
   pendingChange: PendingPlanChange | null
+  /** Владельцу отправлено напоминание о продлении подписки. */
+  reminded: boolean
+  /** Номер открытого счёта на продление (PLT-DSH-030); null — не выставлен. */
+  invoice: string | null
+  /** Ответственный менеджер платформы (риск оттока). */
+  manager: string | null
+  /** Менеджер отметил контакт с центром. */
+  contacted: boolean
+  /** Оценка риска оттока 0–100 и уровень — считает сервер; null, если центр не в зоне риска. */
+  riskScore: number | null
+  riskLevel: RiskLevel | null
+  /** Самый загруженный лимит (по нему центр «у лимита», BR-021). */
+  worst: UsageItem
+  /** Владельцу отправлено предложение перейти на тариф (PLT-TRF-040); снимается при смене тарифа. */
+  offer: { planId: string; planName: string } | null
   isChurn: boolean
   isExpiring: boolean
   nearLimit: boolean
+}
+
+export type RiskLevel = 'high' | 'medium' | 'low'
+
+/** GET /centers/expiring — подписки платных тарифов, истекающие в окне (PLT-DSH-030). */
+export interface ExpiringList {
+  items: CenterDto[]
+  meta: { count: number; within7: number; amount: number; invoiced: number; expired: number }
+}
+
+export type ChurnFilter = 'all' | 'nomanager' | 'contacted'
+
+/** GET /centers/churn — центры в зоне риска оттока, по убыванию риска (PLT-DSH-020). */
+export interface ChurnList {
+  items: CenterDto[]
+  meta: { total: number; high: number; mrrAtRisk: number; withoutManager: number; contacted: number; activeCenters: number }
+}
+
+export type LimitMetric = 'any' | 'staff' | 'storage' | 'branches'
+export type NearLimitStatus = 'all' | 'nooffer' | 'offered' | 'pending' | 'full'
+export type NearLimitSort = 'usage' | 'potential' | 'name'
+
+export interface NearLimitParams {
+  /** Порог «у лимита» долей: 0.7 | 0.8 | 0.9 | 1 (BR-021). */
+  threshold: number
+  metric: LimitMetric
+  q: string
+  plan: string
+  status: NearLimitStatus
+  sort: NearLimitSort
+}
+
+/** Центр у лимита: тарифы выше текущего и рекомендуемый (самый дешёвый, где нагрузка ниже порога — считает сервер). */
+export interface NearLimitEntry {
+  center: CenterDto
+  /** Только более дорогие тарифы. */
+  options: PlanOption[]
+  suggestion: { id: string; name: string; price: number; delta: number } | null
+  /** Загрузка по выбранной метрике (any — самый загруженный лимит), %. */
+  metricPct: number
+}
+
+/** GET /plans/near-limit — сводка (meta) по порогу без фильтров, список — с фильтрами. */
+export interface NearLimitList {
+  items: NearLimitEntry[]
+  meta: { threshold: number; total: number; full: number; offered: number; withoutOffer: number; pending: number; potential: number }
 }
 
 /** Быстрые фильтры реестра (чипы). */
@@ -330,6 +391,47 @@ export interface SmsSale {
   usedPct: number
 }
 
+/* ---------- вход и восстановление (SYS-ACC-010, SYS-ACC-030) ---------- */
+
+/** Пользователь после входа. cabinet — есть веб-кабинет (владелец и администратор центра); остальные роли работают в мобильном приложении. */
+export interface Session {
+  login: string
+  role: string
+  roleLabel: string
+  name: string
+  centerId: number
+  centerName: string
+  /** Пароль временный — до входа его нужно сменить. */
+  mustChange: boolean
+  cabinet: boolean
+}
+
+/** Код восстановления отправлен (ответ одинаковый для любого логина). demoCode — только в моке, SMS-шлюза нет. */
+export interface ResetRequested {
+  expiresIn: number
+  resendIn: number
+  demoCode?: string
+}
+
+/* ---------- заявка центра на подключение (PLT-CTR-070) ---------- */
+
+export interface CenterApplicationPayload {
+  centerName: string
+  city: string
+  direction: string
+  ownerName: string
+  phone: string
+  email: string
+  comment: string
+  consent: boolean
+}
+
+export interface CenterApplication {
+  id: string
+  status: 'new'
+  createdAt: string
+}
+
 /* ---------- доступ ---------- */
 
 /** Выданные данные для входа: пароль временный, показывается один раз и нигде не хранится в открытом виде (BR-025). */
@@ -357,9 +459,69 @@ export interface CabinetCenter {
   logo: string
 }
 
+export type GeoPoint = { lat: number; lng: number }
+export type ModerationStatus = 'pending' | 'published' | 'returned' | 'rejected'
+export type ModerationTab = 'pending' | 'processed'
+export type ModerationDecision = 'published' | 'returned' | 'rejected'
+export type CatalogDesc = { ru: string; tj: string; en: string }
+
+/** Заявка на публикацию филиала в каталоге (PLT-MOD-010). */
+export interface ModerationRequest {
+  id: number
+  centerId: number
+  centerName: string
+  branch: string
+  address: string
+  city: string
+  district: string
+  phone: string
+  /** Когда отправлена — подпись с сервера («сегодня, 09:40»). */
+  submitted: string
+  submittedBy: string
+  directions: string[]
+  /** Точка, указанная центром. */
+  gps: GeoPoint
+  /** Точка по адресу (геокодер). */
+  geo: GeoPoint
+  desc: CatalogDesc
+  status: ModerationStatus
+  /** Причина возврата или отклонения. */
+  reason: string
+  gpsOk: boolean
+  decidedAt?: string
+}
+
+export interface ModerationList {
+  items: ModerationRequest[]
+  meta: { pending: number; processed: number }
+}
+
+export interface ModerationDecisionPayload {
+  decision: ModerationDecision
+  /** Для «Вернуть» и «Отклонить» — от 5 символов (BR-017). */
+  reason?: string
+  desc: CatalogDesc
+  gps: GeoPoint
+  gpsConfirmed: boolean
+}
+
 /* ---------- методы ---------- */
 
 export interface Api {
+  auth: {
+    /** POST /auth/login — UNAUTHORIZED (одно сообщение для логина и пароля), LOCKED (5 попыток), FORBIDDEN (доступ закрыт). */
+    login(payload: { login: string; password: string }): Promise<Session>
+    /** POST /auth/password — смена временного пароля; VALIDATION с fields.newPassword. */
+    changePassword(payload: { login: string; password: string; newPassword: string }): Promise<Session>
+    /** POST /auth/reset — отправить SMS-код; TOO_EARLY — повторно через 60 с. */
+    requestReset(payload: { login: string }): Promise<ResetRequested>
+    /** POST /auth/reset/confirm — VALIDATION с fields: code, newPassword. */
+    confirmReset(payload: { login: string; code: string; newPassword: string }): Promise<{ ok: true; login: string }>
+  }
+  applications: {
+    /** POST /applications — заявка центра; VALIDATION с fields: centerName, city, direction, ownerName, phone, email, consent. */
+    submit(payload: CenterApplicationPayload): Promise<CenterApplication>
+  }
   dictionaries: {
     /** GET /dictionaries */
     get(): Promise<Dictionaries>
@@ -373,6 +535,20 @@ export interface Api {
     list(params?: CentersListParams): Promise<CentersList>
     /** GET /centers/activity?limit= — последние активные центры для главной. */
     recentActivity(params?: { limit?: number }): Promise<{ items: CenterDto[] }>
+    /** GET /centers/expiring?withinDays= */
+    expiring(params: { withinDays: number }): Promise<ExpiringList>
+    /** GET /centers/churn?filter= */
+    churn(params: { filter: ChurnFilter }): Promise<ChurnList>
+    /** POST /centers/remind — напоминание владельцам о продлении. */
+    remind(params: { ids: number[] }): Promise<{ updated: number }>
+    /** POST /centers/{id}/invoice — счёт на продление; CONFLICT — счёт уже есть или открыт счёт на смену тарифа; VALIDATION — бесплатный тариф. */
+    invoice(centerId: number): Promise<CenterDto>
+    /** POST /centers/offers — предложение перейти на тариф; без planId — рекомендуемый. Пропускаются заблокированные, без тарифа выше и с открытым счётом. */
+    sendOffer(params: { ids: number[]; planId?: string }): Promise<{ sent: number; skipped: number }>
+    /** PUT /centers/{id}/manager — null снимает менеджера. */
+    setManager(centerId: number, payload: { manager: string | null }): Promise<CenterDto>
+    /** POST /centers/{id}/contact — менеджер связался с центром. */
+    markContacted(centerId: number): Promise<CenterDto>
     /** POST /centers/{id}/admin-access — выдать или сбросить данные для входа владельца центра; основание ≥ 5 символов (SYS-ACC-020). */
     adminAccess(centerId: number, payload: { reason: string }): Promise<IssuedCredentials>
     /** GET /centers/{id}/plan-change */
@@ -405,6 +581,18 @@ export interface Api {
     packages(): Promise<{ items: SmsPackage[]; meta: { total: number; revenue: number; low: number } }>
     /** POST /sms/sales — VALIDATION с fields: packageId, mode, method, reference, receivedOn, receivedAmount, confirmed, reason; CONFLICT — центр заблокирован (BR-012). */
     accrue(payload: SmsAccruePayload): Promise<SmsSale>
+  }
+  plans: {
+    /** GET /plans/near-limit?threshold=&metric=&q=&plan=&status=&sort= */
+    nearLimit(params: NearLimitParams): Promise<NearLimitList>
+  }
+  moderation: {
+    /** GET /moderation?status= — pending: на проверке; processed: остальные. */
+    list(params: { status: ModerationTab }): Promise<ModerationList>
+    /** POST /moderation/{id}/decision — VALIDATION (условия публикации BR-017, причина), CONFLICT — заявка уже обработана. */
+    decide(id: number, payload: ModerationDecisionPayload): Promise<ModerationRequest>
+    /** POST /moderation/{id}/requeue — вернуть обработанную заявку в очередь. */
+    requeue(id: number): Promise<ModerationRequest>
   }
   support: {
     /** POST /support/sessions — вход SuperAdmin в кабинет центра; пишется в журнал аудита (PLT-CTR-050, NFR-SEC-030). */

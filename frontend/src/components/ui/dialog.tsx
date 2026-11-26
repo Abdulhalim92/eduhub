@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 import { cn } from "cn"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
@@ -37,7 +38,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 bg-slate-900/40 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -53,17 +54,22 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // телефон (до 640 px): «нижний лист», как в мобильных приложениях — во всю ширину снизу, прокрутка только вверх-вниз,
+          // без «резинки» и горизонтального сдвига (overscroll-contain, touch-pan-y, overflow-x-hidden); от 640 px — окно по центру
+          "fixed inset-x-0 bottom-0 z-50 grid max-h-[92dvh] w-full gap-4 overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-2xl bg-popover p-(--dialog-p) text-sm [--dialog-p:--spacing(4)] text-popover-foreground ring-1 ring-foreground/10 duration-200 outline-none touch-pan-y data-open:animate-in data-open:slide-in-from-bottom-10 data-closed:animate-out data-closed:slide-out-to-bottom-10 sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:duration-100 sm:data-open:slide-in-from-bottom-0 sm:data-open:fade-in-0 sm:data-open:zoom-in-95 sm:data-closed:slide-out-to-bottom-0 sm:data-closed:fade-out-0 sm:data-closed:zoom-out-95",
           className
         )}
         {...props}
       >
+        {/* «ручка» нижнего листа — только на телефоне */}
+        <div aria-hidden className="mx-auto -mt-1 -mb-2 h-1.5 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
@@ -74,7 +80,7 @@ function DialogContent({
             >
               <XIcon
               />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{t("common.close")}</span>
             </Button>
           </DialogPrimitive.Close>
         )}
@@ -101,11 +107,14 @@ function DialogFooter({
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        // прилипает к самому низу окна (поверх нижнего отступа) — кнопки видны при прокрутке; на телефоне отступает от «полоски» iPhone.
+        // поля окна берёт из --dialog-p (у окон проекта отступ 1.5rem, не 1rem)
+        "sticky bottom-[calc(var(--dialog-p)*-1)] z-10 -mx-(--dialog-p) -mb-(--dialog-p) flex flex-col-reverse gap-2 border-t bg-slate-50 px-(--dialog-p) pt-4 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))] sm:flex-row sm:justify-end sm:rounded-b-xl sm:pb-4",
         className
       )}
       {...props}
@@ -113,7 +122,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
+          <Button variant="outline">{t("common.close")}</Button>
         </DialogPrimitive.Close>
       )}
     </div>

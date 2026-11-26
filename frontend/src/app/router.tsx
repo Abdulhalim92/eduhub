@@ -3,9 +3,16 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router'
 import { ScreenPlaceholder } from '@/components/ScreenPlaceholder'
 import { CentersScreen } from '@/features/platform/centers/CentersScreen'
+import { ChurnScreen } from '@/features/platform/churn/ChurnScreen'
+import { ExpiringScreen } from '@/features/platform/expiring/ExpiringScreen'
+import { LimitsScreen } from '@/features/platform/limits/LimitsScreen'
+import { ModerationScreen } from '@/features/platform/moderation/ModerationScreen'
 import { HomeScreen } from '@/features/platform/home/HomeScreen'
 import { CabinetIndexRedirect, CenterLayout } from '@/layouts/center/CenterLayout'
 import { PlatformLayout } from '@/layouts/platform/PlatformLayout'
+import { LoginPage } from '@/features/auth/LoginPage'
+import { RegisterPage } from '@/features/auth/RegisterPage'
+import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { NotFound } from './NotFound'
 import type { RouteHandle, ScreenKey } from './route-handle'
 
@@ -23,6 +30,10 @@ const groups = { title: 'screens.center.groups', to: '/center/groups' } as const
 export const routes: RouteObject[] = [
   // до шага авторизации стартовый экран — кабинет платформы; затем — по роли пользователя
   { path: '/', element: <Navigate to="/platform" replace /> },
+  // страницы без кабинета: вход (SYS-ACC-010), восстановление пароля (SYS-ACC-030), заявка центра (PLT-CTR-070)
+  { path: '/login', element: <LoginPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/register', element: <RegisterPage /> },
   {
     path: '/platform',
     element: <PlatformLayout />,
@@ -31,10 +42,10 @@ export const routes: RouteObject[] = [
       { path: 'centers', element: <CentersScreen />, handle: { title: 'screens.platform.centers' } satisfies RouteHandle },
       { path: 'centers/new', ...screen('screens.platform.centerNew', 'platform/center-new.js') },
       { path: 'centers/:centerId/people', ...screen('screens.platform.centerPeople', 'platform/center-people.js', centers) },
-      { path: 'moderation', ...screen('screens.platform.moderation', 'platform/moderation.js') },
-      { path: 'expiring', ...screen('screens.platform.expiring', 'platform/expiring.js') },
-      { path: 'churn', ...screen('screens.platform.churn', 'platform/churn.js') },
-      { path: 'limits', ...screen('screens.platform.limits', 'platform/limits.js') },
+      { path: 'moderation', element: <ModerationScreen />, handle: { title: 'screens.platform.moderation' } satisfies RouteHandle },
+      { path: 'expiring', element: <ExpiringScreen />, handle: { title: 'screens.platform.expiring' } satisfies RouteHandle },
+      { path: 'churn', element: <ChurnScreen />, handle: { title: 'screens.platform.churn' } satisfies RouteHandle },
+      { path: 'limits', element: <LimitsScreen />, handle: { title: 'screens.platform.limits' } satisfies RouteHandle },
       { path: 'plans', ...screen('screens.platform.plans', 'platform/plans.js') },
       { path: 'billing', ...screen('screens.platform.billing', 'platform/billing.js') },
       { path: 'marketplace', ...screen('screens.platform.marketplace', 'platform/marketplace.js') },

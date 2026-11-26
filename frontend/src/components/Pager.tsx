@@ -17,7 +17,7 @@ export function Pager({ page, total, pageSize = PAGE_SIZE, note, onPage }: Props
   const idle = 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-6 py-3.5 text-xs text-slate-500">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-4 py-3.5 sm:px-6 text-xs text-slate-500">
       <span>
         {summary}
         {note && ` · ${note}`}

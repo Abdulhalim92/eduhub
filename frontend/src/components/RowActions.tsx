@@ -3,7 +3,8 @@ import { ChevronDown, Settings, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
-export type RowAction = { label: string; hint?: string; icon: LucideIcon; onSelect: () => void }
+/** disabled — пункт виден, но недоступен (причина — в hint, например «Уже отправлено»). */
+export type RowAction = { label: string; hint?: string; icon: LucideIcon; onSelect: () => void; disabled?: boolean }
 
 export function RowActions({ label, actions }: { label: string; actions: RowAction[] }) {
   return (
@@ -18,7 +19,7 @@ export function RowActions({ label, actions }: { label: string; actions: RowActi
         {actions.map(a => {
           const Icon = a.icon
           return (
-            <DropdownMenuItem key={a.label} onSelect={a.onSelect} className="items-start">
+            <DropdownMenuItem key={a.label} onSelect={a.onSelect} disabled={a.disabled} className="items-start">
               <Icon className="mt-0.5" aria-hidden />
               <span className="flex flex-col">
                 <span>{a.label}</span>

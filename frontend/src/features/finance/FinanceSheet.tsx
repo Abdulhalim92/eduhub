@@ -1,6 +1,7 @@
 /* Панель «Финансы центра» (PLT-BAL-010…060): баланс на платформе, доступно к расходу, овердрафт, открытые счета, журнал операций.
    Прототип: src/js/components/finance.js. Все признаки и суммы — из DTO (financeStatus, available, fromBalance): правила считает api. */
 import { useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { CenterDto, InvoiceDto, LedgerEntry } from '@/api'
 import { useFinance } from '@/api/queries'
@@ -29,12 +30,12 @@ export function FinanceSheet({ centerId, onClose, onTopUp, onChangeLimit }: Prop
   return (
     <Sheet open={centerId !== null} onOpenChange={open => !open && onClose()}>
       {/* ширина — тем же селектором, что у shadcn (data-[side=right]:sm:max-w-sm), иначе его правило сильнее */}
-      <SheetContent className="w-full gap-0 data-[side=right]:sm:max-w-xl">
+      <SheetContent className="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl">
         <SheetHeader className="border-b border-slate-100 px-6 py-4">
           <SheetTitle className="text-base font-extrabold text-heading">{t('finance.title')}</SheetTitle>
           <SheetDescription className="sr-only">{fin?.center.name ?? t('finance.title')}</SheetDescription>
         </SheetHeader>
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
+        <div className="flex flex-1 touch-pan-y flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain p-6">
           {error && !fin ? (
             <QueryError error={error} onRetry={() => refetch()} />
           ) : !fin ? (
@@ -137,7 +138,7 @@ function BalanceCard({ c, onTopUp, onChangeLimit }: { c: CenterDto; onTopUp: () 
   )
 }
 
-function dueText(t: ReturnType<typeof useTranslation>['t'], i: InvoiceDto) {
+function dueText(t: TFunction, i: InvoiceDto) {
   if (i.daysLeft === null) return t('finance.due.none')
   if (i.overdue) return t('finance.due.overdue', { count: i.daysOverdue })
   if (i.daysLeft === 0) return t('finance.due.today')
@@ -156,7 +157,7 @@ function OpenInvoices({ center, invoices }: { center: CenterDto; invoices: Invoi
       {invoices.map(i => {
         const fb = i.fromBalance
         return (
-          <div key={i.id} className={cn('flex items-center justify-between gap-3 rounded-xl border p-3', i.overdue ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200')}>
+          <div key={i.id} className={cn('flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3', i.overdue ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200')}>
             <div className="min-w-0">
               <div className="truncate text-xs font-bold text-heading">{i.purpose}</div>
               <div className={cn('text-[11px]', i.overdue ? 'font-medium text-rose-600' : 'text-slate-400')}>

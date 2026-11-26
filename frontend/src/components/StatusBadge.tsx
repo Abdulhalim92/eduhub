@@ -11,11 +11,12 @@ const TONES = {
 
 export type BadgeTone = keyof typeof TONES
 
-export function StatusBadge({ tone, children }: { tone: BadgeTone; children: string }) {
+/** wrap — длинная метка может переноситься (узкие столбцы таблиц). */
+export function StatusBadge({ tone, children, wrap }: { tone: BadgeTone; children: string; wrap?: boolean }) {
   const [box, dot] = TONES[tone]
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap', box)}>
-      <span className={cn('size-1.5 rounded-full', dot)} aria-hidden />
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium', wrap ? 'leading-tight' : 'whitespace-nowrap', box)}>
+      <span className={cn('size-1.5 shrink-0 rounded-full', dot)} aria-hidden />
       {children}
     </span>
   )

@@ -19,7 +19,8 @@ export function ChoiceCard({ checked, disabled, onSelect, title, aside, children
         disabled ? 'cursor-not-allowed opacity-60' : !checked && 'hover:border-brand/50',
       )}
     >
-      <span className="flex items-start justify-between gap-3">
+      {/* на узком экране цена и метки переносятся под название, а не сжимают его */}
+      <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <span className="flex flex-wrap items-center gap-2">
           <span className={cn('flex size-4 shrink-0 items-center justify-center rounded-full border-2', checked ? 'border-brand' : 'border-slate-300')} aria-hidden>
             {checked && <span className="size-2 rounded-full bg-brand" />}

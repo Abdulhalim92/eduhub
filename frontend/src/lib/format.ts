@@ -13,3 +13,5 @@ export const todayUtc = () => new Date().toISOString().slice(0, 10)
 const dateTimeFmt = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 /** «25.11.2026, 14:05» */
 export const formatDateTime = (iso: string) => dateTimeFmt.format(new Date(iso))
+/** Дата через N дней от сегодня (N < 0 — в прошлом): «5 декабря». */
+export const formatDayFromNow = (days: number) => dayFmt.format(new Date(Date.now() + days * 864e5))

@@ -72,7 +72,7 @@ describe('панель «Финансы центра»', () => {
     const user = await openRegistry()
     let sheet = await openSheet(user, 'English Hub')
     expect(within(sheet).getByRole('region', { name: 'Баланс на платформе' })).toHaveTextContent('Овердрафт почти исчерпан')
-    await user.click(within(sheet).getByRole('button', { name: 'Закрыть' }))
+    await user.click(within(sheet).getAllByRole('button', { name: 'Закрыть' }).at(-1)!) // кнопка внизу панели (вверху — крестик с тем же названием)
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
     sheet = await openSheet(user, 'Math Lab')

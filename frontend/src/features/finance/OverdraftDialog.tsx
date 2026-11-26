@@ -21,7 +21,7 @@ export function OverdraftDialog({ center, onClose }: { center: CenterDto | null;
   const mutation = useSetOverdraft()
   return (
     <Dialog open={!!center} onOpenChange={open => !open && !mutation.isPending && onClose()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto p-6 sm:max-w-lg">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-lg">
         {center && (
           <>
             <DialogHeader>

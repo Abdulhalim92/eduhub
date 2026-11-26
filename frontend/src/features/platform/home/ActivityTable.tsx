@@ -14,9 +14,10 @@ import { useLoginLabel } from '@/features/centers/use-login-label'
 import { useFinanceUi } from '@/features/finance/use-finance-ui'
 import { useEnterSupportNav } from '@/features/support/use-enter-support'
 import { formatMoney } from '@/lib/format'
+import { MQ, useMediaQuery } from '@/lib/use-media-query'
 
 const COLS = 6
-const registryUrl =(c: Pick<CenterDto, 'name'>) => `/platform/centers?q=${encodeURIComponent(c.name)}`
+const registryUrl = (c: Pick<CenterDto, 'name'>) => `/platform/centers?q=${encodeURIComponent(c.name)}`
 
 export function ActivityTable() {
   const { t } = useTranslation()
@@ -25,10 +26,35 @@ export function ActivityTable() {
   const { data, error, isPending, refetch } = useRecentActivity(5)
   const finance = useFinanceUi()
   const support = useEnterSupportNav()
+  // от 768 px — таблица; на телефоне — карточки с теми же данными и меню
+  const wide = useMediaQuery(MQ.md)
+
+  const actionsFor = (c: CenterDto) => [
+    {
+      label: t('home.activity.openInRegistry'),
+      hint: t('home.activity.openInRegistryHint'),
+      icon: ExternalLink,
+      onSelect: () => navigate(registryUrl(c)),
+    },
+    ...(c.status === 'blocked' ? [] : [{ label: t('support.enterFull'), hint: t('support.enterMenuHint'), icon: LogIn, onSelect: () => support.enter(c.id) }]),
+    {
+      label: t('finance.menu.finance'),
+      hint: t('finance.menu.financeHintShort', { balance: formatMoney(c.balance) }),
+      icon: Wallet,
+      onSelect: () => finance.openFinance(c.id),
+    },
+  ]
+  // ссылка — для клавиатуры и «открыть в новой вкладке»; клик по строке делает то же
+  const nameLink = (c: CenterDto) => (
+    <Link to={registryUrl(c)} className="font-semibold text-heading hover:text-brand" onClick={e => e.stopPropagation()}>
+      {c.name}
+    </Link>
+  )
+  const menu = (c: CenterDto) => <RowActions label={t('common.actionsFor', { name: c.name })} actions={actionsFor(c)} />
 
   return (
     <Panel className="overflow-hidden" aria-labelledby="activity-title">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
         <div>
           <h2 id="activity-title" className="text-sm font-bold text-heading">
             {t('home.activity.title')}
@@ -40,79 +66,88 @@ export function ActivityTable() {
         </Link>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className={`${dataTableClass} min-w-176`}>
-          <thead>
-            <tr>
-              <th scope="col">{t('home.activity.columns.center')}</th>
-              <th scope="col">{t('home.activity.columns.plan')}</th>
-              <th scope="col">{t('home.activity.columns.lastLogin')}</th>
-              <th scope="col" className="text-right">{t('home.activity.columns.lessons')}</th>
-              <th scope="col">{t('home.activity.columns.status')}</th>
-              <th scope="col" className="text-right">{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-700">
-            {error ? (
-              <tr>
-                <td colSpan={COLS}>
-                  <QueryError error={error} onRetry={() => refetch()} />
-                </td>
-              </tr>
-            ) : isPending ? (
-              Array.from({ length: 5 }, (_, i) => (
-                <tr key={i} data-testid="skeleton-row">
-                  {Array.from({ length: COLS }, (_, j) => (
-                    <td key={j} className="py-4">
-                      <div className="h-3 animate-pulse rounded bg-slate-100" />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : (
-              data.items.map(c => (
-                <tr key={c.id} onClick={() => navigate(registryUrl(c))} className="cursor-pointer transition hover:bg-slate-50">
-                  <td className="py-3.5">
-                    {/* ссылка — для клавиатуры и «открыть в новой вкладке»; клик по строке делает то же */}
-                    <Link to={registryUrl(c)} className="font-semibold text-heading hover:text-brand" onClick={e => e.stopPropagation()}>
-                      {c.name}
-                    </Link>
-                    <div className="text-[11px] text-slate-400">{c.city}</div>
-                  </td>
-                  <td className="py-3.5 text-slate-600">{c.plan}</td>
-                  <td className="py-3.5 text-slate-600">{loginLabel(c)}</td>
-                  <td className="py-3.5 text-right text-slate-600 tabular-nums">{t('center.lessons', { count: c.lessons7d })}</td>
-                  <td className="py-3.5">
+      {error ? (
+        <QueryError error={error} onRetry={() => refetch()} />
+      ) : !wide ? (
+        isPending ? (
+          <div className="flex flex-col gap-3 p-4">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} data-testid="skeleton-row" className="h-16 animate-pulse rounded-xl bg-slate-100" />
+            ))}
+          </div>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {data.items.map(c => (
+              <li key={c.id}>
+                {/* телефон: имя и меню — сверху, город и тариф — под именем, вход, уроки и статус — одной строкой внизу */}
+                <article aria-label={c.name} onClick={() => navigate(registryUrl(c))} className="flex cursor-pointer flex-col gap-2 px-4 py-3.5 text-xs transition hover:bg-slate-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      {nameLink(c)}
+                      <div className="text-[11px] text-slate-400">
+                        {c.city} · {c.plan}
+                      </div>
+                    </div>
+                    <div className="shrink-0" onClick={e => e.stopPropagation()}>
+                      {menu(c)}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-500">
+                      {loginLabel(c)} · {t('center.lessons', { count: c.lessons7d })}
+                    </span>
                     <CenterStatusBadge center={c} />
-                  </td>
-                  <td className="py-3.5 text-right" onClick={e => e.stopPropagation()}>
-                    <RowActions
-                      label={t('common.actionsFor', { name: c.name })}
-                      actions={[
-                        {
-                          label: t('home.activity.openInRegistry'),
-                          hint: t('home.activity.openInRegistryHint'),
-                          icon: ExternalLink,
-                          onSelect: () => navigate(registryUrl(c)),
-                        },
-                        ...(c.status === 'blocked'
-                          ? []
-                          : [{ label: t('support.enterFull'), hint: t('support.enterMenuHint'), icon: LogIn, onSelect: () => support.enter(c.id) }]),
-                        {
-                          label: t('finance.menu.finance'),
-                          hint: t('finance.menu.financeHintShort', { balance: formatMoney(c.balance) }),
-                          icon: Wallet,
-                          onSelect: () => finance.openFinance(c.id),
-                        },
-                      ]}
-                    />
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                </article>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        <div className="overflow-x-auto">
+          <table className={dataTableClass}>
+            <thead>
+              <tr>
+                <th scope="col">{t('home.activity.columns.center')}</th>
+                <th scope="col">{t('home.activity.columns.plan')}</th>
+                <th scope="col">{t('home.activity.columns.lastLogin')}</th>
+                <th scope="col" className="text-right">{t('home.activity.columns.lessons')}</th>
+                <th scope="col">{t('home.activity.columns.status')}</th>
+                <th scope="col" className="text-right">{t('common.actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {isPending
+                ? Array.from({ length: 5 }, (_, i) => (
+                    <tr key={i} data-testid="skeleton-row">
+                      {Array.from({ length: COLS }, (_, j) => (
+                        <td key={j} className="py-4">
+                          <div className="h-3 animate-pulse rounded bg-slate-100" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                : data.items.map(c => (
+                    <tr key={c.id} onClick={() => navigate(registryUrl(c))} className="cursor-pointer transition hover:bg-slate-50">
+                      <td className="py-3.5">
+                        {nameLink(c)}
+                        <div className="text-[11px] text-slate-400">{c.city}</div>
+                      </td>
+                      <td className="py-3.5 text-slate-600">{c.plan}</td>
+                      <td className="py-3.5 text-slate-600">{loginLabel(c)}</td>
+                      <td className="py-3.5 text-right text-slate-600 tabular-nums">{t('center.lessons', { count: c.lessons7d })}</td>
+                      <td className="py-3.5">
+                        <CenterStatusBadge center={c} />
+                      </td>
+                      <td className="py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                        {menu(c)}
+                      </td>
+                    </tr>
+                  ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {finance.ui}
     </Panel>
   )

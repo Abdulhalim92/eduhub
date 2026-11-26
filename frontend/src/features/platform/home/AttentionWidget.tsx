@@ -29,7 +29,7 @@ export function AttentionWidget() {
   const total = data ? QUEUES.reduce((s, q) => s + q.count(data), 0) : null
 
   return (
-    <Panel className="flex flex-col p-5 lg:col-span-4" aria-labelledby="attention-title">
+    <Panel className="flex flex-col p-4 sm:p-5 lg:col-span-4" aria-labelledby="attention-title">
       <div className="mb-3 flex items-center justify-between">
         <h2 id="attention-title" className="text-sm font-bold text-heading">
           {t('home.attention.title')}

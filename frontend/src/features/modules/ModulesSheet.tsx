@@ -31,14 +31,14 @@ export function ModulesSheet({ center: c, onClose, onEnter, onAdminAccess, onCha
 
   return (
     <Sheet open={!!c} onOpenChange={open => !open && onClose()}>
-      <SheetContent className="w-full gap-0 data-[side=right]:sm:max-w-md">
+      <SheetContent className="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md">
         <SheetHeader className="border-b border-slate-100 px-6 py-4">
           <span className="text-[10px] font-bold tracking-wider text-brand uppercase">{t('modules.eyebrow')}</span>
           <SheetTitle className="text-base font-extrabold text-heading">{t('modules.title')}</SheetTitle>
           <SheetDescription>{c?.name}</SheetDescription>
         </SheetHeader>
         {c && (
-          <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
+          <div className="flex flex-1 touch-pan-y flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain p-6">
             {active && (
               <div className="flex flex-col gap-2">
                 {/* длинная подпись переносится, а не вылезает за кнопку (у shadcn по умолчанию nowrap) */}
@@ -52,7 +52,10 @@ export function ModulesSheet({ center: c, onClose, onEnter, onAdminAccess, onCha
               </div>
             )}
 
-            <section aria-label={t('modules.plan')} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <section
+              aria-label={t('modules.plan')}
+              className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="min-w-0">
                 <div className={sectionTitle}>{t('modules.plan')}</div>
                 <div className="mt-0.5 text-xs font-bold text-heading">
@@ -65,7 +68,7 @@ export function ModulesSheet({ center: c, onClose, onEnter, onAdminAccess, onCha
                 </div>
               </div>
               {active && (
-                <Button variant="outline" onClick={() => onChangePlan(c)}>
+                <Button variant="outline" className="self-start sm:self-auto" onClick={() => onChangePlan(c)}>
                   {t('modules.changePlan')}
                 </Button>
               )}

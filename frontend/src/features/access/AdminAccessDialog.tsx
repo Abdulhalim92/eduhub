@@ -25,7 +25,7 @@ export function AdminAccessDialog({ center, onClose }: { center: Center | null; 
   return (
     <Dialog open={!!center} onOpenChange={open => !open && !mutation.isPending && !issued && close()}>
       <DialogContent
-        className="p-6 sm:max-w-lg"
+        className="[--dialog-p:--spacing(6)] sm:max-w-lg"
         showCloseButton={!issued}
         // пароль виден один раз — не терять его случайным кликом или Esc
         onInteractOutside={e => issued && e.preventDefault()}

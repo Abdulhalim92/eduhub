@@ -27,7 +27,7 @@ function ChartTooltip({ active, payload }: TooltipContentProps) {
 export function ConnectionsChart() {
   const { t } = useTranslation()
   return (
-    <Panel className="flex flex-col p-6 lg:col-span-8">
+    <Panel className="flex min-w-0 flex-col p-4 sm:p-6 lg:col-span-8">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-heading">{t('home.chart.title')}</h2>

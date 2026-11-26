@@ -37,7 +37,7 @@ function SupportBanner() {
       <div className="flex flex-wrap items-center gap-2.5 text-xs">
         <Radio className="size-4 animate-pulse text-orange-500" aria-hidden />
         <span className="font-semibold text-orange-400">{t('layout.support.title')}</span>
-        <span className="text-slate-500" aria-hidden>·</span>
+        <span className="hidden text-slate-500 sm:inline" aria-hidden>·</span>
         <span className="text-slate-300">{t('layout.support.text', { name: center?.name ?? '…' })}</span>
       </div>
       <Link
@@ -108,7 +108,7 @@ function CenterHeader() {
               aria-label={t('layout.centerSwitcher')}
               value={center?.id ?? ''}
               onChange={e => switchCenter(Number(e.target.value))}
-              className="max-w-64 cursor-pointer truncate rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus:outline-none"
+              className="max-w-36 cursor-pointer truncate rounded-lg sm:max-w-64 border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus:outline-none"
             >
               {centers.map(c => (
                 <option key={c.id} value={c.id}>
@@ -120,7 +120,7 @@ function CenterHeader() {
         ) : null
       }
     >
-      <h1 className="truncate text-lg font-extrabold tracking-tight text-heading">{screen ? t(screen.title) : ''}</h1>
+      <h1 className="truncate text-base font-extrabold tracking-tight text-heading sm:text-lg">{screen ? t(screen.title) : ''}</h1>
     </Header>
   )
 }

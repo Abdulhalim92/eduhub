@@ -36,7 +36,7 @@ export function SmsAccrueDialog({ center, onClose }: { center: CenterDto | null;
   const packages = useSmsPackages()
   return (
     <Dialog open={!!center} onOpenChange={open => !open && !mutation.isPending && onClose()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto p-6 sm:max-w-xl">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-xl">
         {center && (
           <>
             <DialogHeader>

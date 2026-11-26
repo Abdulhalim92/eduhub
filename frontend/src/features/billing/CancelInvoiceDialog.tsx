@@ -18,7 +18,7 @@ export function CancelInvoiceDialog({ invoice, onClose, onCancelled }: Props) {
   const mutation = useCancelInvoice()
   return (
     <Dialog open={!!invoice} onOpenChange={open => !open && !mutation.isPending && onClose()}>
-      <DialogContent className="p-6 sm:max-w-lg">
+      <DialogContent className="[--dialog-p:--spacing(6)] sm:max-w-lg">
         {invoice && (
           <>
             <DialogHeader>

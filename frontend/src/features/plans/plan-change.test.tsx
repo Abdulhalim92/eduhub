@@ -31,15 +31,22 @@ async function issueInvoice(user: User, d: HTMLElement, plan: RegExp, reason = '
 }
 
 describe('смена тарифа: выбор', () => {
-  it('текущий тариф и лимиты, рекомендуемый выбран, неподходящий недоступен с объяснением (BR-008)', async () => {
+  it('подходящие тарифы с разницей в цене и будущей занятостью; неподходящие — свёрнуты с причиной (BR-008)', async () => {
     const { d } = await openPlanChange('Умед Плюс')
     expect(within(d).getByRole('region', { name: 'Сейчас' })).toHaveTextContent('Тариф «Базовый» · 400 сомони/мес')
-    expect(radio(d, /^Про/)).toHaveAttribute('aria-checked', 'true')
-    expect(radio(d, /^Про/)).toHaveTextContent('Рекомендуем')
-    const start = radio(d, /^Старт/)
-    expect(start).toBeDisabled()
-    expect(start).toHaveTextContent('Не вмещает')
-    expect(norm(start.textContent)).toContain('Превышение: сотрудники 9 > 5; хранилище, гб 7 > 2')
+    // выбрать можно только то, во что центр помещается
+    const planRadios = within(within(d).getByRole('radiogroup', { name: 'Новый тариф' })).getAllByRole('radio')
+    expect(planRadios.map(r => /^(Старт|Базовый|Про|Бизнес)/.exec(r.textContent ?? '')?.[1])).toEqual(['Про', 'Бизнес'])
+    const pro = radio(d, /^Про/)
+    expect(pro).toHaveAttribute('aria-checked', 'true')
+    expect(pro).toHaveTextContent('Рекомендуем')
+    expect(norm(pro.textContent)).toContain('дороже текущего на 500 сомони')
+    expect(norm(pro.textContent)).toContain('на балансе не хватает — оплата по счёту')
+    expect(norm(pro.textContent)).toContain('После перехода будет занято:сотрудники 9 из 50хранилище 7 из 50 ГБфилиалы 2 из 10')
+    // «Старт» не вмещает — в свёрнутом блоке с причиной словами
+    expect(within(d).queryByRole('radio', { name: /^Старт/ })).toBeNull()
+    const unfit = within(d).getByText(/Не подходят по лимитам: Старт/).closest('details')!
+    expect(norm(unfit.textContent)).toContain('сотрудников 9, а лимит 5; хранилище 7 ГБ, а лимит 2 ГБ')
     // «с баланса» недоступно: доступно 150 при цене 900
     expect(radio(d, /^Списать с баланса на платформе/)).toBeDisabled()
     expect(norm(d.textContent)).toContain('Не хватает: доступно 150 сомони (баланс + овердрафт), нужно 900 сомони.')

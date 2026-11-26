@@ -19,7 +19,7 @@ export function CentersFilters({ state }: { state: ReturnType<typeof useCentersF
   const attention = useAttention().data
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-6 py-4">
+    <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
       <SearchInput
         value={filters.q}
         onChange={v => setFilter('q', v)}

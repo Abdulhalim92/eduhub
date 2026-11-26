@@ -1,5 +1,5 @@
 /* Кабинет платформы (SuperAdmin). Прототип: index.html (сайдбар — nav.js, шапка — router.js renderBreadcrumbs). */
-import { ChevronDown } from 'lucide-react'
+import { Building, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { DEMO_SESSION } from '@/app/demo-session'
@@ -80,27 +80,32 @@ function PlatformHeader() {
     <Header
       actions={
         <Button variant="outline" size="sm" asChild>
-          <Link to="/center">{t('layout.toCenterCabinet')}</Link>
+          {/* на телефоне — только значок, подпись остаётся для экранных чтецов */}
+          <Link to="/center" aria-label={t('layout.toCenterCabinet')}>
+            <Building aria-hidden />
+            <span className="hidden sm:inline">{t('layout.toCenterCabinet')}</span>
+          </Link>
         </Button>
       }
     >
-      <nav aria-label={t('layout.breadcrumbs')} className="flex items-center gap-2 text-sm whitespace-nowrap text-slate-500">
-        <span>{t('layout.platform')}</span>
-        {screen?.parent && (
-          <>
-            <span className="text-slate-300" aria-hidden>/</span>
-            <Link to={screen.parent.to} className="transition hover:text-brand">
-              {t(screen.parent.title)}
-            </Link>
-          </>
-        )}
+      {/* на телефоне — только текущий экран: начало цепочки не помещается */}
+      <nav aria-label={t('layout.breadcrumbs')} className="flex min-w-0 items-center gap-2 text-sm whitespace-nowrap text-slate-500">
+        <span className="hidden items-center gap-2 sm:flex">
+          {t('layout.platform')}
+          {screen?.parent && (
+            <>
+              <span className="text-slate-300" aria-hidden>/</span>
+              <Link to={screen.parent.to} className="transition hover:text-brand">
+                {t(screen.parent.title)}
+              </Link>
+            </>
+          )}
+          {screen && <span className="text-slate-300" aria-hidden>/</span>}
+        </span>
         {screen && (
-          <>
-            <span className="text-slate-300" aria-hidden>/</span>
-            <span aria-current="page" className="font-semibold text-slate-900">
-              {t(screen.title)}
-            </span>
-          </>
+          <span aria-current="page" className="truncate font-semibold text-slate-900">
+            {t(screen.title)}
+          </span>
         )}
       </nav>
     </Header>

@@ -2,6 +2,8 @@
 // Не типизируется и не правится по частям: на проде весь файл заменяет настоящий бэкенд.
 // Типизированный контракт для экранов — src/api/contract.ts; экраны импортируют api только оттуда (src/api/index.ts).
 // Источник истины для бизнес-правил mock — прототип: при правке правила менять оба файла (прототип покрыт tests/suite*.js).
+// ДОПОЛНЕНО во frontend (в прототипе этого нет, решение владельца 26.11.2026): auth.requestReset / auth.confirmReset (SYS-ACC-030),
+// applications.submit (PLT-CTR-070), демо-доступ владельца «Центр Перспектива». Блоки помечены «frontend:».
 /* eslint-disable */
 /* Слой данных. Сейчас — mock-бэкенд в памяти; при подключении реального API заменяется только IIFE `api`. */
 /* =====================================================================
@@ -454,6 +456,12 @@ const api = (() => {
   }
   // логин администратора центра = телефон владельца; если занят другим центром — по номеру центра
   const ownerLogin = (c, phone) => { const l = digits(phone); return l.length >= 9 && !loginTaken(l) ? l : 'center' + c.id; };
+  // frontend: демо-доступ, чтобы вход можно было попробовать сразу — владелец «Центр Перспектива», пароль временный (попросит сменить)
+  db.credentials['center:1'] = { login: '992901001001', passwordHash: pwFingerprint('Demo2026'), issuedAt: new Date().toISOString(), mustChange: true };
+  // frontend: коды восстановления пароля (SYS-ACC-030) и заявки центров на подключение (PLT-CTR-070)
+  db.resetCodes = {};
+  db.applications = [];
+  db.applicationSeq = 1001;
 
   /* ---------- вход (AUTH-010): проверка логина и пароля, блокировка подбора, принудительная смена временного пароля ---------- */
   db.loginFails = {};
@@ -481,6 +489,26 @@ const api = (() => {
     return { key: hit[0], rec: hit[1], who };
   }
   const sessionDto = ({ rec, who }) => ({ login: rec.login, role: who.role, roleLabel: who.roleLabel, name: who.name, centerId: who.c.id, centerName: who.c.name, mustChange: rec.mustChange, cabinet: CABINET_ROLES.includes(who.role) });
+
+  /* ---------- frontend: восстановление пароля по SMS-коду (SYS-ACC-030) ----------
+     Код из 6 цифр живёт 10 минут, повторная отправка — через 60 с, после 5 неверных вводов код сгорает.
+     Ответ одинаковый для существующего и несуществующего логина (как при входе): по нему нельзя узнать, есть ли логин.
+     SMS-шлюз — мок (INT-SMS-010): код возвращается в ответе как demoCode, на проде его нет. */
+  const RESET_TTL = 10 * 60 * 1000, RESET_RESEND = 60 * 1000, RESET_ATTEMPTS = 5;
+  const phoneOf = key => {
+    const [kind, sid] = key.split(':'), id = Number(sid);
+    if (kind === 'center') { const c = db.centers.find(x => x.id === id); return c && c.phone; }
+    if (kind === 'staff') { const t = db.staff.find(x => x.id === id); return t && t.phone; }
+    const st = db.students.find(x => x.id === id); return st && studentPhone(st);
+  };
+  const weakPassword = np => np.length < 8 || !/[A-Za-zА-Яа-я]/.test(np) || !/\d/.test(np);
+  const genCode = () => { const b = new Uint32Array(1); if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b); else b[0] = Math.floor(Math.random() * 4294967296); return String(b[0] % 1000000).padStart(6, '0'); };
+
+  /* ---------- frontend: заявка центра на подключение (PLT-CTR-070) ----------
+     Центр оставляет заявку; SuperAdmin рассматривает её и подключает центр (PLT-CTR-020) — тогда выдаются данные для входа.
+     Допущения (Q-025): название не занято центром и открытой заявкой; по одному телефону — одна открытая заявка. */
+  const normPhone = raw => { const d = digits(raw); const n = d.length === 12 && d.startsWith('992') ? d.slice(3) : d; return n.length === 9 ? '+992 ' + n.slice(0, 2) + ' ' + n.slice(2, 5) + ' ' + n.slice(5, 7) + ' ' + n.slice(7) : null; };
+  const openApplication = a => a.status === 'new';
 
   /* ---------- кабинет центра: ученики, группы, поощрения, автоправила coin (CTR-USR/GRP/RWD/CIN/ANL) ----------
      Ученики есть у каждого центра с профилем: их число = profile.students. Имя и телефон сидовых учеников считаются по (центр, номер),
@@ -1087,6 +1115,54 @@ const api = (() => {
         a.rec.passwordHash = pwFingerprint(np); a.rec.mustChange = false; a.rec.changedAt = new Date().toISOString();
         log('auth.password_changed', centerEntity(a.who.c), { reason: a.who.name + ' (' + a.who.roleLabel + ') сменил пароль', actor: { name: a.who.name, role: a.who.roleLabel, ip: '—', device: 'Страница входа' } });
         return sessionDto(a);
+      }),
+      // frontend: SYS-ACC-030
+      requestReset: ({ login: rawLogin } = {}) => call(() => {
+        const login = String(rawLogin || '').trim().toLowerCase();
+        if (!login) throw new ApiError('VALIDATION', 'Укажите логин', { login: 'Укажите логин' });
+        const prev = db.resetCodes[login], now = Date.now();
+        if (prev && now - prev.sentAt < RESET_RESEND) throw new ApiError('TOO_EARLY', 'Код уже отправлен. Повторно — через ' + Math.ceil((RESET_RESEND - (now - prev.sentAt)) / 1000) + ' с');
+        const code = genCode(), hit = credByLogin(login), who = hit && principal(hit[0]), phone = hit && who && who.active ? phoneOf(hit[0]) : null;
+        // запись есть и для чужого логина (без кода) — чтобы ответ и лимит повторной отправки не выдавали, существует ли логин
+        db.resetCodes[login] = { hash: phone ? pwFingerprint(code) : null, expires: now + RESET_TTL, attempts: 0, sentAt: now };
+        if (phone) log('auth.reset_requested', centerEntity(who.c), { reason: who.name + ' (' + who.roleLabel + ') запросил код восстановления пароля', actor: { name: who.name, role: who.roleLabel, ip: '—', device: 'Страница входа' } });
+        return { expiresIn: RESET_TTL / 1000, resendIn: RESET_RESEND / 1000, demoCode: code };
+      }),
+      confirmReset: ({ login: rawLogin, code, newPassword } = {}) => call(() => {
+        const login = String(rawLogin || '').trim().toLowerCase(), rec = db.resetCodes[login], e = {}, np = String(newPassword || '');
+        if (!/^\d{6}$/.test(String(code || '').trim())) e.code = 'Введите 6 цифр из SMS';
+        else if (!rec || !rec.hash || rec.expires < Date.now() || rec.hash !== pwFingerprint(String(code).trim())) {
+          e.code = 'Неверный или просроченный код';
+          if (rec) { rec.attempts++; if (rec.attempts >= RESET_ATTEMPTS) { rec.hash = null; e.code = 'Код больше не действует. Запросите новый'; } }
+        }
+        if (weakPassword(np)) e.newPassword = 'Не короче 8 символов, с буквой и цифрой';
+        if (Object.keys(e).length) throw new ApiError('VALIDATION', 'Проверьте код и пароль', e);
+        const hit = credByLogin(login), who = principal(hit[0]);
+        hit[1].passwordHash = pwFingerprint(np); hit[1].mustChange = false; hit[1].changedAt = new Date().toISOString();
+        delete db.resetCodes[login]; delete db.loginFails[login];   // новый пароль снимает и блокировку подбора
+        log('auth.password_reset', centerEntity(who.c), { reason: who.name + ' (' + who.roleLabel + ') восстановил пароль по SMS-коду', actor: { name: who.name, role: who.roleLabel, ip: '—', device: 'Страница входа' } });
+        return { ok: true, login };
+      })
+    },
+    // frontend: PLT-CTR-070
+    applications: {
+      submit: (d = {}) => call(() => {
+        const e = {}, name = String(d.centerName || '').trim(), owner = String(d.ownerName || '').trim(), phone = normPhone(d.phone), email = String(d.email || '').trim();
+        if (name.length < 2 || name.length > 80) e.centerName = 'Название — от 2 до 80 символов';
+        else if (db.centers.some(c => c.name.toLowerCase() === name.toLowerCase())) e.centerName = 'Центр с таким названием уже подключён к платформе';
+        else if (db.applications.some(a => openApplication(a) && a.centerName.toLowerCase() === name.toLowerCase())) e.centerName = 'Заявка с таким названием уже рассматривается';
+        if (!CITIES.includes(d.city)) e.city = 'Выберите город';
+        if (!DIRECTIONS.includes(d.direction)) e.direction = 'Выберите направление';
+        if (owner.length < 3) e.ownerName = 'Укажите имя и фамилию';
+        if (!phone) e.phone = 'Номер в формате +992 и 9 цифр';
+        else if (db.applications.some(a => openApplication(a) && a.phone === phone)) e.phone = 'По этому номеру уже есть заявка на рассмотрении';
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Проверьте адрес почты';
+        if (d.consent !== true) e.consent = 'Нужно согласие на обработку данных';
+        if (Object.keys(e).length) throw new ApiError('VALIDATION', 'Проверьте данные заявки', e);
+        const a = { id: 'APP-' + (db.applicationSeq++), status: 'new', createdAt: new Date().toISOString(), centerName: name, city: d.city, direction: d.direction, ownerName: owner, phone, email, comment: String(d.comment || '').trim().slice(0, 500) };
+        db.applications.unshift(a);
+        log('center.application', { type: 'application', id: a.id, name }, { after: { city: a.city, owner, phone }, reason: 'Заявка на подключение с сайта', actor: { name: owner, role: 'Гость', ip: '—', device: 'Страница заявки' } });
+        return { id: a.id, status: a.status, createdAt: a.createdAt };
       })
     },
     sync: {

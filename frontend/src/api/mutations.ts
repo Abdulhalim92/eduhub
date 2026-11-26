@@ -2,7 +2,7 @@
    счётчики «Требует внимания» (овердрафт), панель финансов, SMS-продажи, смена тарифа, счета и тариф в кабинете центра. Мутация завершается, когда данные перечитаны, —
    диалог закрывается уже со свежими цифрами на экране. */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ConfirmPaymentPayload, PlanChangePayload, SmsAccruePayload, TopUpPayload } from './contract'
+import type { CenterApplicationPayload, ConfirmPaymentPayload, ModerationDecisionPayload, PlanChangePayload, SmsAccruePayload, TopUpPayload } from './contract'
 import { api } from './index'
 import { queryKeys } from './queries'
 
@@ -85,6 +85,63 @@ export function useSimulateOnlinePayment() {
 export const useAdminAccess = () =>
   useMutation({ mutationFn: ({ centerId, reason }: { centerId: number; reason: string }) => api.centers.adminAccess(centerId, { reason }) })
 
+/* ---------- работа с центрами: продление, напоминания, менеджер, контакт ---------- */
+
+/** Обновить всё, где виден центр (реестр, главная, истекающие, отток, счётчики). */
+function useRefreshCenters() {
+  const qc = useQueryClient()
+  return () => Promise.all([qc.invalidateQueries({ queryKey: queryKeys.centers }), qc.invalidateQueries({ queryKey: queryKeys.attention })])
+}
+
+export function useRemindCenters() {
+  const refresh = useRefreshCenters()
+  return useMutation({ mutationFn: (ids: number[]) => api.centers.remind({ ids }), onSuccess: () => refresh() })
+}
+
+/** Счёт на продление (PLT-DSH-030); затем — подтверждение оплаты. */
+export function useInvoiceRenewal() {
+  const refresh = useRefreshCenterMoney()
+  return useMutation({ mutationFn: (centerId: number) => api.centers.invoice(centerId), onSuccess: c => refresh(c.id) })
+}
+
+function useRefreshModeration() {
+  const qc = useQueryClient()
+  return () => Promise.all([qc.invalidateQueries({ queryKey: queryKeys.moderationAll }), qc.invalidateQueries({ queryKey: queryKeys.attention })])
+}
+
+/** Решение по заявке каталога (PLT-MOD-030); пишется в журнал аудита на сервере. */
+export function useModerationDecide() {
+  const refresh = useRefreshModeration()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number } & ModerationDecisionPayload) => api.moderation.decide(id, payload),
+    onSuccess: () => refresh(),
+  })
+}
+
+export function useModerationRequeue() {
+  const refresh = useRefreshModeration()
+  return useMutation({ mutationFn: (id: number) => api.moderation.requeue(id), onSuccess: () => refresh() })
+}
+
+/** Предложение перейти на тариф выше (PLT-TRF-040). */
+export function useSendOffer() {
+  const refresh = useRefreshCenters()
+  return useMutation({ mutationFn: (p: { ids: number[]; planId?: string }) => api.centers.sendOffer(p), onSuccess: () => refresh() })
+}
+
+export function useSetManager() {
+  const refresh = useRefreshCenters()
+  return useMutation({
+    mutationFn: ({ centerId, manager }: { centerId: number; manager: string | null }) => api.centers.setManager(centerId, { manager }),
+    onSettled: () => refresh(), // и при ошибке — список вернётся к значению сервера
+  })
+}
+
+export function useMarkContacted() {
+  const refresh = useRefreshCenters()
+  return useMutation({ mutationFn: (centerId: number) => api.centers.markContacted(centerId), onSuccess: () => refresh() })
+}
+
 /** Вход в режим поддержки. Без записи в журнале аудита вход не выполняется (NFR-SEC-030). */
 export const useEnterSupport = () => useMutation({ mutationFn: (centerId: number) => api.support.enter({ centerId }) })
 
@@ -95,3 +152,13 @@ export function usePayFromBalance() {
     onSuccess: inv => refresh(inv.centerId),
   })
 }
+
+/* ---------- вход, восстановление пароля, заявка центра (страницы без кабинета) ---------- */
+
+export const useLogin = () => useMutation({ mutationFn: (p: { login: string; password: string }) => api.auth.login(p) })
+export const useChangePassword = () =>
+  useMutation({ mutationFn: (p: { login: string; password: string; newPassword: string }) => api.auth.changePassword(p) })
+export const useRequestReset = () => useMutation({ mutationFn: (login: string) => api.auth.requestReset({ login }) })
+export const useConfirmReset = () =>
+  useMutation({ mutationFn: (p: { login: string; code: string; newPassword: string }) => api.auth.confirmReset(p) })
+export const useSubmitApplication = () => useMutation({ mutationFn: (p: CenterApplicationPayload) => api.applications.submit(p) })

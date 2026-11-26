@@ -29,7 +29,7 @@ export function SearchInput({
   useEffect(() => () => clearTimeout(timer.current), [])
 
   return (
-    <div className="relative w-72 max-w-full">
+    <div className="relative w-full sm:w-72">
       <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
       <input
         type="search"
@@ -60,12 +60,12 @@ export function FilterSelect({
   children: ReactNode
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-slate-500">
-      {label}
+    <label className="flex max-w-full min-w-0 items-center gap-2 text-xs text-slate-500">
+      <span className="shrink-0">{label}</span>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-brand focus:outline-none"
+        className="min-w-0 cursor-pointer truncate rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-brand focus:outline-none"
       >
         {children}
       </select>

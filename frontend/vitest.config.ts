@@ -10,6 +10,8 @@ export default mergeConfig(
       include: ['src/**/*.test.{ts,tsx}'],
       setupFiles: ['src/test/setup.ts'],
       css: false,
+      // jsdom-тесты тяжёлые: больше двух параллельных потоков рабочая машина (7 ГБ) не тянет — уходит в swap, тесты падают по таймауту
+      maxWorkers: 2,
     },
   }),
 )

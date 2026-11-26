@@ -13,6 +13,18 @@
   html {
     @apply bg-background;
   }
+  /* как в мобильном приложении: страница не «тянется» резинкой за край (прокрутка — внутри областей) */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+  /* iOS Safari: поле даты не сжимается уже своей «родной» ширины и раздвигает окно вбок — убираем минимальную ширину */
+  input[type='date'] {
+    min-width: 0;
+  }
+  input[type='date']::-webkit-date-and-time-value {
+    text-align: left;
+  }
   body {
     @apply font-sans text-foreground antialiased;
   }
@@ -24,4 +36,14 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { @apply rounded bg-slate-300; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-slate-400; }
+}
+
+/* iOS Safari увеличивает страницу при фокусе на поле с шрифтом мельче 16 px — окно «уезжает» вбок.
+   На телефоне все поля ввода — 16 px (вне @layer, чтобы перекрыть утилиты text-xs). Масштаб пальцами при этом остаётся. */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
