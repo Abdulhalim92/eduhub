@@ -1,4 +1,4 @@
-/* Экран: B2B-биллинг (мок). Реестр счетов центров: продления, смена тарифа, методики, триалы.
+/* Экран: B2B-биллинг (мок). Реестр счетов центров: продления, смена тарифа, методики.
    Оформление по практикам зрелых биллингов (Stripe, Chargebee): номер и клиент слева, сумма справа, статус и срок рядом,
    «Просрочен» — признак открытого счёта, одно главное действие в строке и меню «⋯» для остальных, клик по строке открывает карточку,
    массовые действия — контекстной панелью. Источник оплаты (онлайн / банк / касса / перевод) виден в самой таблице.
@@ -34,7 +34,6 @@ registerView({
         <option value="renewal">Продление подписки</option>
         <option value="plan_change">Смена тарифа</option>
         <option value="course">Методика</option>
-        <option value="trial">Триал</option>
       </select></label>
     </div>
     <div id="billActive"></div>
@@ -72,8 +71,8 @@ function billSet(key, value) {
   else renderBilling();
 }
 
-const BILL_KIND_LABEL = { renewal: 'Продление подписки', plan_change: 'Смена тарифа', course: 'Методика', trial: 'Триал' };
-const BILL_STATUS_LABEL = { pending: 'Ожидают оплаты', overdue: 'Просрочены', paid: 'Оплачены', trial: 'Триалы', cancelled: 'Отменены' };
+const BILL_KIND_LABEL = { renewal: 'Продление подписки', plan_change: 'Смена тарифа', course: 'Методика' };
+const BILL_STATUS_LABEL = { pending: 'Ожидают оплаты', overdue: 'Просрочены', paid: 'Оплачены', cancelled: 'Отменены' };
 const billFiltersActive = () => billState.status !== 'all' || billState.kind !== 'all' || billState.q.trim() !== '';
 
 // Два независимых фильтра (статус и тип) пересекаются — показываем это явно: чипы применённых фильтров и «Сбросить»
@@ -93,12 +92,12 @@ function billClearSearch() { billState.q = ''; const i = $('billSearch'); if (i)
 function billResetFilters() { billState.status = 'all'; billState.kind = 'all'; billState.q = ''; billState.page = 1; const i = $('billSearch'); if (i) i.value = ''; renderBilling(); }
 
 function billTabsHtml() {
-  const m = billState.meta, c = (m && m.counts) || { pending: 0, overdue: 0, paid: 0, trial: 0, cancelled: 0 };
+  const m = billState.meta, c = (m && m.counts) || { pending: 0, overdue: 0, paid: 0, cancelled: 0 };
   const tab = (key, label, count) => {
     const on = billState.status === key;
     return `<button role="tab" aria-selected="${on}" onclick="billSet('status','${key}')" class="pb-3 -mb-px border-b-2 text-xs font-semibold whitespace-nowrap transition ${on ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'}">${label}<span class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${on ? 'bg-brand-light text-brand' : 'bg-slate-100 text-slate-500'}">${count}</span></button>`;
   };
-  return tab('all', 'Все статусы', m ? m.total : 0) + tab('pending', 'Ожидают оплаты', c.pending) + tab('overdue', 'Просрочены', c.overdue) + tab('paid', 'Оплачены', c.paid) + tab('trial', 'Триалы', c.trial) + tab('cancelled', 'Отменены', c.cancelled);
+  return tab('all', 'Все статусы', m ? m.total : 0) + tab('pending', 'Ожидают оплаты', c.pending) + tab('overdue', 'Просрочены', c.overdue) + tab('paid', 'Оплачены', c.paid) + tab('cancelled', 'Отменены', c.cancelled);
 }
 
 // «Как поступает оплата» — отвечает на главный вопрос реестра: откуда деньги и кто их подтверждает
@@ -121,7 +120,6 @@ const billChannelCell = i => {
       <div class="font-medium text-slate-800">${esc(ch.label || p.method)}${ch.sub ? ` <span class="text-slate-400 font-normal">· ${esc(ch.sub)}</span>` : ''}</div>
       <div class="text-[11px] text-slate-400">${esc(p.reference)} · ${p.via === 'online' ? 'автоматически' : p.via === 'balance' ? 'списано с баланса на платформе' : 'вручную: ' + esc(p.confirmedBy.name)}</div></div></div>`;
   }
-  if (i.status === 'trial') return `<div class="flex items-center gap-2.5">${channelChip('promo')}<div><div class="font-medium text-slate-800">${esc(i.method)}</div><div class="text-[11px] text-slate-400">оплата не требуется</div></div></div>`;
   return '<span class="text-slate-300">—</span>';
 };
 
@@ -135,7 +133,7 @@ async function renderBilling() {
   const my = begin('billing'), body = $('billBody');
   if (!$('billExplainer').innerHTML) $('billExplainer').innerHTML = billExplainerHtml();
   $('billTabs').innerHTML = billTabsHtml();
-  $('billTiles').innerHTML = ['Оплачено за 30 дней', 'Ожидают оплаты', 'Просрочено', 'Активные триалы'].map(l => tile(l, '—', '&nbsp;')).join('');
+  $('billTiles').innerHTML = ['Оплачено за 30 дней', 'Ожидают оплаты', 'Просрочено', 'Всего счетов'].map(l => tile(l, '—', '&nbsp;')).join('');
   body.innerHTML = skeletonRows(7, 4);
   try {
     const [{ items, meta }] = await Promise.all([api.billing.list({ status: billState.status, kind: billState.kind, q: billState.q }), refreshAttention()]);
@@ -155,7 +153,7 @@ async function renderBilling() {
       tile('Оплачено за 30 дней', money(meta.paid30), 'по подтверждённым счетам', 'text-emerald-600') +
       tile('Ожидают оплаты', money(meta.pendingSum), meta.pendingCount + ' ' + plural(meta.pendingCount, ['счёт', 'счёта', 'счетов']), meta.pendingCount ? 'text-amber-600' : 'text-slate-900') +
       tile('Просрочено', money(meta.overdueSum), meta.overdueCount ? meta.overdueCount + ' ' + plural(meta.overdueCount, ['счёт', 'счёта', 'счетов']) + ' — стоит напомнить' : 'просрочек нет', meta.overdueCount ? 'text-rose-600' : 'text-slate-900') +
-      tile('Активные триалы', meta.trials + ' ' + plural(meta.trials, ['центр', 'центра', 'центров']), 'промокоды и промо-периоды');
+      tile('Всего счетов', String(meta.allTotal), 'в реестре');
     billRenderBulk(); billRenderFooter(items.length, from, pageItems.length, pages, meta.allTotal);
     body.innerHTML = pageItems.length ? pageItems.map(i => `
       <tr onclick="openInvoice('${i.id}')" class="hover:bg-slate-50 transition cursor-pointer">

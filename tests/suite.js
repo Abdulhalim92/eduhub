@@ -81,7 +81,7 @@
 
  // ---- биллинг / аудит / смена тарифа: API (до мутаций) ----
  const bl=await api.billing.list();
- ok('billing seed: 3 invoices, pending 1 500, trials 1', bl.items.length===3 && bl.meta.pendingSum===1500 && bl.meta.pendingCount===1 && bl.meta.trials===1 && bl.meta.paid30===1800);
+ ok('billing seed: 2 invoices, pending 1 500', bl.items.length===2 && bl.meta.pendingSum===1500 && bl.meta.pendingCount===1 && bl.meta.paid30===1800);
  ok('attention pendingInvoices 1', (await api.platform.attention()).pendingInvoices===1);
  const al=(await api.audit.list()).items; ok('audit: seed entries present, newest first', al.length>=3 && al.some(e=>e.action==='support.entered') && al.some(e=>e.action==='invoice.paid') && al.every((e,i)=>i===0 || new Date(al[i-1].at)>=new Date(e.at)));
 
@@ -345,7 +345,7 @@
  const brows=()=>document.querySelectorAll('#billBody tr').length;
  const rowOf=id=>[...document.querySelectorAll('#billBody tr')].find(r=>r.innerText.includes(id));
  ok('billing: registry shows invoices incl. new ones', brows()>=6 && document.getElementById('billBody').innerText.includes('INV-1043'));
- ok('billing: underline tabs with counts incl. "Просрочены"', document.querySelectorAll('#billTabs button').length===6 && document.getElementById('billTabs').innerText.includes('Просрочены'));
+ ok('billing: underline tabs with counts incl. "Просрочены"', document.querySelectorAll('#billTabs button').length===5 && document.getElementById('billTabs').innerText.includes('Просрочены'));
  ok('billing: explainer answers where payment comes from', document.getElementById('billExplainer').innerText.includes('Онлайн — автоматически') && document.getElementById('billExplainer').innerText.includes('Вручную — SuperAdmin'));
  ok('billing: nav badge = pending invoices', String(state.attention.pendingInvoices)===String((await api.platform.attention()).pendingInvoices));
  ok('billing: numbers right-aligned, status shows due text', rowOf('INV-1043').innerText.includes('просрочен на 2 дня') && rowOf('INV-1043').querySelector('td.text-right.tabular-nums'));
@@ -403,10 +403,10 @@
  const nInv=(await api.billing.list()).items.length;
  billSet('kind','course'); await sleep(60);
  ok('billing filters: type narrows rows AND tab counts (numbers match rows)', brows()===1 && /Все статусы\s*1/.test(document.getElementById('billTabs').innerText) && document.getElementById('billActive').innerText.includes('Тип: Методика') && document.getElementById('billActive').innerText.includes('Сбросить все фильтры'));
- billSet('status','trial'); await sleep(60);
- ok('billing filters: status + type combine (course ∩ trial = empty), empty state offers reset', document.getElementById('billBody').innerText.includes('подходящих под выбранные фильтры') && document.getElementById('billBody').innerText.includes('Сбросить все фильтры') && document.getElementById('billActive').innerText.includes('Статус: Триалы'));
+ billSet('status','cancelled'); await sleep(60);
+ ok('billing filters: status + type combine (course ∩ cancelled = empty), empty state offers reset', document.getElementById('billBody').innerText.includes('подходящих под выбранные фильтры') && document.getElementById('billBody').innerText.includes('Сбросить все фильтры') && document.getElementById('billActive').innerText.includes('Статус: Отменены'));
  const kindSel=document.getElementById('billKind'); kindSel.value='all'; kindSel.dispatchEvent(new Event('change',{bubbles:true})); await sleep(60);
- ok('billing filters: "Все типы счетов" removes the type filter (status stays visible as a chip)', billState.kind==='all' && document.getElementById('billActive').innerText.includes('Статус: Триалы') && !document.getElementById('billActive').innerText.includes('Тип:'));
+ ok('billing filters: "Все типы счетов" removes the type filter (status stays visible as a chip)', billState.kind==='all' && document.getElementById('billActive').innerText.includes('Статус: Отменены') && !document.getElementById('billActive').innerText.includes('Тип:'));
  billResetFilters(); await sleep(70);
  ok('billing filters: reset shows every invoice, no chips', brows()===Math.min(10,nInv) && document.getElementById('billActive').innerHTML==='' && billState.status==='all' && billState.kind==='all');
  ok('billing: tiles dynamic', document.getElementById('billTiles').innerText.includes('Ожидают оплаты') && document.getElementById('billTiles').innerText.includes('Просрочено'));

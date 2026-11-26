@@ -5,21 +5,20 @@
    - история событий (выставлен → напоминание → оплата → применено). */
 const invState = { id: null, inv: null };
 
-// канал оплаты: подпись, иконка и цвет бейджа (канал приходит с сервера: online | bank | cash | card | promo)
+// канал оплаты: подпись, иконка и цвет бейджа (канал приходит с сервера: online | bank | cash | card | balance)
 const PAY_CHANNEL_UI = {
   online: { label: 'Онлайн-шлюз', sub: 'карта', icon: 'card', cls: 'bg-indigo-100 text-brand' },
   bank:   { label: 'Банк', sub: 'расчётный счёт', icon: 'bank', cls: 'bg-sky-100 text-sky-700' },
   cash:   { label: 'Наличные', sub: 'касса', icon: 'cash', cls: 'bg-emerald-100 text-emerald-700' },
   card:   { label: 'Перевод на карту', sub: '', icon: 'phone', cls: 'bg-violet-100 text-violet-700' },
-  balance: { label: 'Баланс на платформе', sub: 'внутренний счёт', icon: 'wallet', cls: 'bg-teal-100 text-teal-700' },
-  promo:  { label: 'Промокод', sub: 'без оплаты', icon: 'tag', cls: 'bg-amber-100 text-amber-700' }
+  balance: { label: 'Баланс на платформе', sub: 'внутренний счёт', icon: 'wallet', cls: 'bg-teal-100 text-teal-700' }
 };
-const INVOICE_KIND = { renewal: 'Продление подписки', plan_change: 'Смена тарифа', course: 'Методика', trial: 'Триал' };
+const INVOICE_KIND = { renewal: 'Продление подписки', plan_change: 'Смена тарифа', course: 'Методика' };
 
 // статус: «просрочен» — признак открытого счёта (как в Stripe), а не отдельный статус
 function invoiceStatusBadge(i) {
   if (i.status === 'pending') return i.overdue ? badge('rose', 'Просрочен') : badge('amber', 'Ожидает оплаты');
-  return ({ paid: badge('emerald', 'Оплачен'), trial: badge('indigo', 'Триал'), cancelled: badge('slate', 'Отменён') })[i.status] || '';
+  return ({ paid: badge('emerald', 'Оплачен'), cancelled: badge('slate', 'Отменён') })[i.status] || '';
 }
 const channelChip = ch => { const c = PAY_CHANNEL_UI[ch]; return c ? `<span class="inline-flex items-center justify-center w-7 h-7 rounded-lg ${c.cls} flex-shrink-0">${iconSvg(c.icon, 'w-4 h-4')}</span>` : ''; };
 const dueText = i => i.daysLeft === null ? '' : i.overdue ? 'просрочен на ' + i.daysOverdue + ' ' + plural(i.daysOverdue, ['день', 'дня', 'дней']) : i.daysLeft === 0 ? 'срок — сегодня' : 'осталось ' + i.daysLeft + ' ' + plural(i.daysLeft, ['день', 'дня', 'дней']);
@@ -125,7 +124,6 @@ function invPaymentBlock(i) {
       ])}
     </div>`;
   }
-  if (i.status === 'trial') return `<div class="rounded-xl border border-slate-200 p-4 flex items-center gap-3">${channelChip('promo')}<div class="text-xs text-slate-700"><strong>${esc(i.method)}</strong><div class="text-[11px] text-slate-500">Оплата не требуется: триал-период по промокоду.</div></div></div>`;
   if (i.status === 'cancelled') return `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">Счёт отменён, оплата не ожидается.${i.reason ? '<div class="mt-1 text-slate-500">' + esc(i.reason) + '</div>' : ''}</div>`;
   return '';
 }

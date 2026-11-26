@@ -44,9 +44,8 @@
      cabinet.users.setStatus(c,id,d)    PATCH /cabinet/centers/{c}/students/{id}/status
      cabinet.groups.list/get/create/update(c,…)  GET|POST|PATCH /cabinet/centers/{c}/groups[/{id}]
      cabinet.groups.addStudent/removeStudent(c,id,sid)  POST|DELETE /cabinet/centers/{c}/groups/{id}/students[/{sid}]
-     cabinet.rewards.list/create/update(c,…)     GET|POST|PATCH /cabinet/centers/{c}/rewards[/{id}]
-     cabinet.coinRules.list/create/update(c,…)   GET|POST|PATCH /cabinet/centers/{c}/coin-rules[/{id}]
-     cabinet.analytics.list(c,{…}) / grant(c,sid,d)  GET /cabinet/centers/{c}/analytics · POST …/students/{sid}/coin
+          cabinet.coinRules.list/create/update(c,…)   GET|POST|PATCH /cabinet/centers/{c}/coin-rules[/{id}]
+     cabinet.analytics.list(c,{…})  GET /cabinet/centers/{c}/analytics
      cabinet.profile(centerId)          GET   /centers/{id}/profile        (профиль центра: карточка, показатели, лимиты, баланс, курсы; CTR-PRF-010)
      sync.enabled() / sync.reset()      —     (только прототип: общее состояние mock между index.html и eduhub.html через localStorage)
      cabinet.staff.list(centerId,{role,q,page,pageSize})   GET /centers/{id}/staff        (сотрудники центра; meta — использование лимита тарифа)
@@ -152,7 +151,7 @@ const api = (() => {
     totalCenters: 142,
     invoiceSeq: 1045,
     auditSeq: 4,
-    // kind: renewal (продление) | plan_change (смена тарифа) | course | trial; status: pending | paid | trial | cancelled
+    // kind: renewal (продление) | plan_change (смена тарифа) | course; status: pending | paid | cancelled
     invoices: [
       { id: 'INV-1042', centerId: 1, kind: 'renewal', purpose: 'Подписка Бизнес (1 мес)', amount: 1800, status: 'paid', issuedAt: ago(5), dueAt: ago(-2), paidAt: ago(3), paidVia: 'manual',
         method: 'Безнал (Р/С)', channel: 'bank', reference: 'ПП № 18', plan: null, reason: '', remindedAt: null,
@@ -167,10 +166,7 @@ const api = (() => {
         events: [
           { at: ago(9), type: 'issued', actor: SEED_ADMIN, text: 'Счёт выставлен' },
           { at: ago(4), type: 'reminded', actor: SEED_ADMIN, text: 'Напоминание отправлено владельцу центра' }
-        ] },
-      { id: 'INV-1044', centerId: 2, kind: 'trial', purpose: 'Триал: Бизнес (30 дней)', amount: 0, status: 'trial', issuedAt: ago(10), dueAt: null, paidAt: null, paidVia: null,
-        method: 'Промокод START30', channel: 'promo', reference: '', plan: null, reason: '', remindedAt: null, payment: null,
-        events: [{ at: ago(10), type: 'issued', actor: SEED_ADMIN, text: 'Триал активирован по промокоду START30' }] }
+        ] }
     ],
     audit: [
       { id: 3, at: ago(0, 5), actor: { name: 'Алексей К.', role: 'SuperAdmin' }, ip: '10.0.0.5', device: 'Chrome · macOS', action: 'support.entered', entity: { type: 'center', id: 3, name: 'Alpha School' }, before: null, after: null, reason: '' },
@@ -371,9 +367,9 @@ const api = (() => {
   ];
 
   // профили демо-центров (кабинет центра): направление, число учеников, логотип, баннер; сотрудники центра — отдельные записи db.staff.
-  // Роли: teacher | admin | manager; число активных сотрудников = staffUsed центра (лимит тарифа, BR-023). Состав [преподаватели, администраторы, менеджеры]
+  // Роли: teacher | admin; число активных сотрудников = staffUsed центра (лимит тарифа, BR-023). Состав [преподаватели, администраторы, менеджеры]
   // для первых девяти центров задан явно, у остальных считается по доле. Центры, подключённые позже (centers.create), получают пустой профиль (CTR-PRF-010)
-  const STAFF_ROLES = { teacher: 'Преподаватель', admin: 'Администратор', manager: 'Менеджер' };
+  const STAFF_ROLES = { teacher: 'Преподаватель', admin: 'Администратор' };
   const STAFF_MALE = ['Рустам', 'Дилшод', 'Фарход', 'Зафар', 'Бахтиёр', 'Умед', 'Парвиз', 'Мансур', 'Сухроб', 'Алишер', 'Саид', 'Бехруз'];
   const STAFF_FEMALE = ['Фарида', 'Нигора', 'Мадина', 'Ситора', 'Гулнора', 'Шахноза', 'Лайло', 'Мехрона', 'Дильбар', 'Зарина', 'Мунира', 'Нодира'];
   const STAFF_LAST = ['Каримов', 'Назаров', 'Хакимов', 'Исмоилов', 'Саидов', 'Азизов', 'Юсупов', 'Шарипов', 'Олимов', 'Умаров', 'Мирзоев', 'Бобоев', 'Давлатов', 'Одинаев', 'Ахмедов'];
@@ -415,10 +411,11 @@ const api = (() => {
     [29, 'Шахматы и логика', 'Шахматная школа и логические игры: турниры, разборы партий, подготовка к соревнованиям.', 2017, 160, null, 'math']
   ].forEach(([id, direction, description, foundedYear, students, roles, banner]) => {
     const c = db.centers.find(x => x.id === id), n = c.staffUsed;
-    const [t, a, m] = roles || (() => { const m = Math.round(n * 0.1), t = Math.round(n * 0.68); return [t, n - t - m, m]; })();
+    const [t, a0, m] = roles || (() => { const m = Math.round(n * 0.1), t = Math.round(n * 0.68); return [t, n - t - m, m]; })();
     db.profiles[id] = { direction, description, foundedYear, students, logo: 'src/assets/centers/logo-' + id + '.svg', banner: 'src/assets/centers/banner-' + banner + '.jpg' };
+    const a = a0 + m;   // роли менеджера центра нет: бывшие менеджеры учтены администраторами
     let i = 0;
-    [['teacher', t], ['admin', a], ['manager', m]].forEach(([role, k]) => { for (let j = 0; j < k; j++, i++) db.staff.push({ id: db.staffSeq++, centerId: id, name: staffName(id, i), role, phone: staffPhone(id, i), status: 'active', hiredAt: ago(30 + (i * 37 + id * 11) % 700), dismissedAt: null }); });
+    [['teacher', t], ['admin', a]].forEach(([role, k]) => { for (let j = 0; j < k; j++, i++) db.staff.push({ id: db.staffSeq++, centerId: id, name: staffName(id, i), role, phone: staffPhone(id, i), status: 'active', hiredAt: ago(30 + (i * 37 + id * 11) % 700), dismissedAt: null }); });
   });
 
   /* ---------- учётные данные для входа (PLT-CTR-020, CTR-STF-010, CTR-USR-010, BR-025) ----------
@@ -477,14 +474,13 @@ const api = (() => {
   }
   const sessionDto = ({ rec, who }) => ({ login: rec.login, role: who.role, roleLabel: who.roleLabel, name: who.name, centerId: who.c.id, centerName: who.c.name, mustChange: rec.mustChange, cabinet: CABINET_ROLES.includes(who.role) });
 
-  /* ---------- кабинет центра: ученики, группы, поощрения, автоправила coin (CTR-USR/GRP/RWD/CIN/ANL) ----------
+  /* ---------- кабинет центра: ученики, группы, автоправила баллов (CTR-USR/GRP/CIN/COI) ----------
      Ученики есть у каждого центра с профилем: их число = profile.students. Имя и телефон сидовых учеников считаются по (центр, номер),
      у добавленных вручную хранятся в записи. Группа привязана к курсу центра, филиалу и преподавателю; у ученика не больше одной группы. */
   const WEEK_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
   const SCHEDULES = { 'Пн, Ср, Пт': [0, 2, 4], 'Вт, Чт, Сб': [1, 3, 5], 'Пн, Чт': [0, 3], 'Сб, Вс': [5, 6], 'Пн–Пт': [0, 1, 2, 3, 4] };
   const SCHEDULE_KEYS = Object.keys(SCHEDULES);
   const GROUP_COURSES = ['Базовый курс', 'Интенсив', 'Подготовка к экзаменам', 'Разговорный клуб', 'Начальный уровень', 'Продвинутый уровень'];
-  const REWARD_CATEGORIES = ['Скидки', 'Мерч', 'Канцелярия', 'Опыт'];
   const COIN_SCOPES = { academy: 'Вся академия', course: 'Курс', group: 'Группа' };
   const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -492,7 +488,6 @@ const api = (() => {
   const studentPhone = s => s.phone || staffPhone(s.centerId, 1000 + s.i);
   db.students = []; db.studentSeq = 1;
   db.groups = []; db.groupSeq = 1;
-  db.rewards = []; db.rewardSeq = 1;
   db.coinRules = []; db.coinRuleSeq = 1;
   Object.keys(db.profiles).forEach(key => {
     const id = Number(key), p = db.profiles[id];
@@ -513,8 +508,6 @@ const api = (() => {
       db.students.push({ id: db.studentSeq++, centerId: id, i, status: i % 23 === 5 ? 'blocked' : 'active', groupId: g.id, joinedAt: ago(10 + (i * 13) % 300), coin: hashN(id * 31 + i) % 600 });
     }
     if (p.students) {
-      [['Скидка 10% на курс', 'Скидки', 500, 'active'], ['Фирменная футболка', 'Мерч', 800, 'active'], ['Тетрадь и ручка', 'Канцелярия', 150, 'active'], ['Экскурсия в лабораторию', 'Опыт', 1200, 'archived']]
-        .forEach(([name, category, price, status]) => db.rewards.push({ id: db.rewardSeq++, centerId: id, name, category, price, status }));
       [['Отличная посещаемость', 'academy', 90, 30, true], ['Отличная успеваемость по курсу', 'course', 80, 50, false]]
         .forEach(([name, scope, threshold, coin, active]) => db.coinRules.push({ id: db.coinRuleSeq++, centerId: id, name, scope, threshold, coin, active }));
     }
@@ -813,7 +806,7 @@ const api = (() => {
     try { return clone(fn()); } finally { syncSave(); }
   };
 
-  /* ---------- кабинет центра: дашборд, пользователи, группы, поощрения, правила coin, аналитика ---------- */
+  /* ---------- кабинет центра: дашборд, пользователи, группы, правила баллов, аналитика ---------- */
   const writable = (c, what) => { if (c.status !== 'active') throw new ApiError('CONFLICT', 'Центр заблокирован: ' + what + ' нельзя'); };
   const intIn = (v, min, max) => { const n = Number(v); return v !== '' && v !== null && Number.isInteger(n) && n >= min && n <= max ? n : null; };
   const isDay = s => /^\d{4}-\d\d-\d\d$/.test(String(s || '')) && !isNaN(new Date(s));
@@ -855,23 +848,13 @@ const api = (() => {
     if (Object.keys(e).length) throw new ApiError('VALIDATION', 'Проверьте данные группы', e);
     return out;
   }
-  const rewardDto = r => ({ ...r, statusLabel: r.status === 'active' ? 'Активен' : 'В архиве' });
   const ruleDto = r => ({ ...r, scopeLabel: COIN_SCOPES[r.scope], condition: 'Средний % ≥ ' + r.threshold, statusLabel: r.active ? 'Активно' : 'Выключено' });
-  function rewardFields(d) {
-    const e = {}, name = String(d.name || '').trim(), price = intIn(d.price, 1, 100000);
-    if (name.length < 3 || name.length > 80) e.name = 'Название — от 3 до 80 символов';
-    if (!REWARD_CATEGORIES.includes(d.category)) e.category = 'Выберите категорию';
-    if (price === null) e.price = 'Цена — целое число coin от 1 до 100 000';
-    if (d.status !== undefined && !['active', 'archived'].includes(d.status)) e.status = 'Неизвестный статус';
-    if (Object.keys(e).length) throw new ApiError('VALIDATION', 'Проверьте данные поощрения', e);
-    return { name, category: d.category, price, ...(d.status !== undefined ? { status: d.status } : {}) };
-  }
   function ruleFields(d) {
     const e = {}, name = String(d.name || '').trim(), th = intIn(d.threshold, 1, 100), coin = intIn(d.coin, 1, 10000);
     if (name.length < 3 || name.length > 80) e.name = 'Название — от 3 до 80 символов';
     if (!COIN_SCOPES[d.scope]) e.scope = 'Выберите область';
     if (th === null) e.threshold = 'Порог — от 1 до 100 %';
-    if (coin === null) e.coin = 'Награда — от 1 до 10 000 coin';
+    if (coin === null) e.coin = 'Награда — от 1 до 10 000 баллов';
     if (Object.keys(e).length) throw new ApiError('VALIDATION', 'Проверьте данные правила', e);
     return { name, scope: d.scope, threshold: th, coin };
   }
@@ -1007,25 +990,7 @@ const api = (() => {
         s.groupId = null; return stuDto(s, null);
       })
     },
-    // поощрения (CTR-RWD-010): каталог наград за coin
-    rewards: {
-      list: (centerId, { status = '', priceFrom = '', priceTo = '', page = 1, pageSize = 10 } = {}) => call(() => {
-        const c = findCenter(centerId), lo = priceFrom === '' ? 0 : Number(priceFrom), hi = priceTo === '' ? Infinity : Number(priceTo);
-        const rows = db.rewards.filter(r => r.centerId === c.id && (!status || r.status === status) && r.price >= lo && r.price <= hi);
-        return { center: centerDto(c), items: paging(rows, page, pageSize).map(rewardDto), total: rows.length, page, pageSize, categories: REWARD_CATEGORIES };
-      }),
-      create: (centerId, d = {}) => call(() => {
-        const c = findCenter(centerId), f = rewardFields(d); writable(c, 'добавлять поощрения');
-        const r = { id: db.rewardSeq++, centerId: c.id, status: 'active', ...f }; db.rewards.push(r); return rewardDto(r);
-      }),
-      update: (centerId, id, d = {}) => call(() => {
-        const c = findCenter(centerId), r = db.rewards.find(x => x.id === id && x.centerId === c.id);
-        if (!r) throw new ApiError('NOT_FOUND', 'Поощрение не найдено');
-        const f = rewardFields({ name: r.name, category: r.category, price: r.price, ...d }); writable(c, 'менять поощрения');
-        Object.assign(r, f); return rewardDto(r);
-      })
-    },
-    // автоправила coin (CTR-CIN-010): условия начисления; в прототипе правила хранятся и включаются, но не исполняются (Q-019)
+    // автоправила баллов (CTR-CIN-010): условия начисления; в прототипе правила хранятся и включаются, но не исполняются (Q-019)
     coinRules: {
       list: (centerId, { scope = '', page = 1, pageSize = 10 } = {}) => call(() => {
         const c = findCenter(centerId), rows = db.coinRules.filter(r => r.centerId === c.id && (!scope || r.scope === scope));
@@ -1044,7 +1009,7 @@ const api = (() => {
         return ruleDto(r);
       })
     },
-    // аналитика (CTR-ANL-010): coin учеников, ручное начисление с основанием
+    // аналитика (CTR-COI-010): баллы учеников; начисление только преподавателем и автоправилами (BR-030)
     analytics: {
       list: (centerId, { groupId = '', coinFrom = '', coinTo = '', q = '', page = 1, pageSize = 10 } = {}) => call(() => {
         const c = findCenter(centerId), gm = new Map(db.groups.filter(g => g.centerId === c.id).map(g => [g.id, g])), term = String(q).trim().toLowerCase();
@@ -1056,17 +1021,6 @@ const api = (() => {
         return { center: centerDto(c), items: paging(rows, page, pageSize).map(s => stuDto(s, gm.get(s.groupId))), total: rows.length, page, pageSize,
           totals: { students: all.length, coin: total, avg: all.length ? Math.round(total / all.length) : 0 },
           groups: [...gm.values()].map(g => ({ id: g.id, name: g.name })) };
-      }),
-      grant: (centerId, studentId, { amount, reason = '' } = {}) => call(() => {
-        const c = findCenter(centerId), s = findStudent(c, studentId), n = intIn(amount, 1, 10000), e = {};
-        if (n === null) e.amount = 'Количество — целое число от 1 до 10 000';
-        if (String(reason).trim().length < 5) e.reason = 'Минимум 5 символов';
-        if (Object.keys(e).length) throw new ApiError('VALIDATION', 'Проверьте данные начисления', e);
-        writable(c, 'начислять coin');
-        if (s.status !== 'active') throw new ApiError('CONFLICT', 'Ученик заблокирован: начислять coin нельзя');
-        const before = s.coin; s.coin += n;
-        log('coin.granted', centerEntity(c), { before: { student: studentName(s), coin: before }, after: { coin: s.coin }, reason: studentName(s) + ' · +' + n + ' coin · ' + String(reason).trim(), actor: centerActor(c) });
-        return stuDto(s, db.groups.find(g => g.id === s.groupId));
       })
     }
   };
@@ -1353,8 +1307,7 @@ const api = (() => {
             pendingCount: pending.length,
             overdueSum: overdue.reduce((sum, i) => sum + i.amount, 0),
             overdueCount: overdue.length,
-            trials: all.filter(i => i.status === 'trial').length,
-            counts: { pending: base.filter(i => i.status === 'pending').length, overdue: base.filter(i => i.overdue).length, paid: base.filter(i => i.status === 'paid').length, trial: base.filter(i => i.status === 'trial').length, cancelled: base.filter(i => i.status === 'cancelled').length }
+            counts: { pending: base.filter(i => i.status === 'pending').length, overdue: base.filter(i => i.overdue).length, paid: base.filter(i => i.status === 'paid').length, cancelled: base.filter(i => i.status === 'cancelled').length }
           }
         };
       }),
@@ -1423,7 +1376,7 @@ const api = (() => {
         return {
           center: centerDto(c),
           profile: { direction: p.direction, description: p.description, foundedYear: p.foundedYear, students: p.students, logo: p.logo, banner: p.banner,
-            staffRoles: [['teacher', 'Преподаватели'], ['admin', 'Администраторы'], ['manager', 'Менеджеры']].map(([key, label]) => ({ key, label, count: db.staff.filter(x => x.centerId === c.id && x.status === 'active' && x.role === key).length })) },
+            staffRoles: [['teacher', 'Преподаватели'], ['admin', 'Администраторы']].map(([key, label]) => ({ key, label, count: db.staff.filter(x => x.centerId === c.id && x.status === 'active' && x.role === key).length })) },
           usage: usageOf(c).map(u => ({ ...u, near: u.pct >= nearPct, full: u.used >= u.limit })),
           ledger: db.ledger.filter(e => e.centerId === c.id).sort((a, b) => new Date(b.at) - new Date(a.at) || b.id - a.id).slice(0, 5),
           courses: { items: db.courseAccess.filter(a => a.centerId === c.id && a.status === 'active').map(accessDto).sort((a, b) => new Date(b.grantedAt) - new Date(a.grantedAt)), own: db.courses.filter(x => x.ownerCenterId === c.id).map(courseDto) }

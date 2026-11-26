@@ -14,7 +14,7 @@ const AUDIT_LABELS = {
   'invoice.created': 'Выставлен счёт', 'invoice.paid': 'Оплата подтверждена', 'invoice.cancelled': 'Счёт отменён',
   'plan.changed': 'Смена тарифа центра', 'subscription.extended': 'Подписка продлена',
   'plan.created': 'Создан тариф', 'plan.updated': 'Изменён тариф', 'plan.archived': 'Тариф перенесён в архив', 'plan.restored': 'Тариф возвращён из архива',
-  'support.entered': 'Вход в режим поддержки', 'staff.added': 'Добавлен сотрудник центра', 'staff.removed': 'Сотрудник уволен', 'center.credentials': 'Выданы данные для входа', 'access.reset': 'Выдан или сброшен доступ', 'auth.password_changed': 'Пароль изменён', 'student.added': 'Добавлен ученик', 'student.blocked': 'Ученик заблокирован', 'student.unblocked': 'Доступ ученика возвращён', 'coin.granted': 'Начислены coin',
+  'support.entered': 'Вход в режим поддержки', 'staff.added': 'Добавлен сотрудник центра', 'staff.removed': 'Сотрудник уволен', 'center.credentials': 'Выданы данные для входа', 'access.reset': 'Выдан или сброшен доступ', 'auth.password_changed': 'Пароль изменён', 'student.added': 'Добавлен ученик', 'student.blocked': 'Ученик заблокирован', 'student.unblocked': 'Доступ ученика возвращён', 
   'branch.submitted': 'Филиал отправлен на модерацию', 'branch.resubmitted': 'Филиал отправлен повторно',
   'moderation.published': 'Филиал опубликован в каталоге', 'moderation.returned': 'Филиал возвращён на доработку', 'moderation.rejected': 'Заявка филиала отклонена',
   'balance.topup': 'Пополнение баланса на платформе', 'balance.charge': 'Списание с баланса на платформе', 'overdraft.changed': 'Изменён лимит овердрафта',

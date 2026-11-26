@@ -9,8 +9,7 @@ const payState = { invoice: null, method: '', reference: '', receivedAmount: '',
 const INVOICE_EFFECT = {
   renewal: 'Подписка центра будет продлена на 30 дней.',
   plan_change: 'Тариф центра изменится сразу после подтверждения оплаты.',
-  course: 'Курс будет передан центру: он появится в кабинете, раздел «Материалы и тесты».',
-  trial: ''
+  course: 'Курс будет передан центру: он появится в кабинете, раздел «Материалы и тесты».'
 };
 const todayStr = () => new Date().toISOString().slice(0, 10);   // сервер сверяет даты в UTC, поэтому и здесь UTC
 

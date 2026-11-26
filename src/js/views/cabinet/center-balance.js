@@ -16,7 +16,7 @@ registerView({
   render: renderCenterBalance
 });
 
-const CB_KIND = { renewal: 'Продление подписки', plan_change: 'Смена тарифа', course: 'Покупка курса', trial: 'Пробный период' };
+const CB_KIND = { renewal: 'Продление подписки', plan_change: 'Смена тарифа', course: 'Покупка курса' };
 const CB_EFFECT = { renewal: 'Подписка будет продлена на 30 дней.', plan_change: 'Тариф сменится сразу после оплаты.', course: 'Курс будет передан центру автоматически.' };
 let cbData = null;
 

@@ -9,7 +9,7 @@ registerView({
   <div class="flex items-start justify-between gap-4 flex-wrap">
     <div class="max-w-2xl">
       <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Сотрудники</h1>
-      <p class="text-xs text-slate-500 mt-1">Преподаватели, администраторы и менеджеры центра. Количество сотрудников ограничено тарифом.</p>
+      <p class="text-xs text-slate-500 mt-1">Преподаватели и администраторы центра. Количество сотрудников ограничено тарифом.</p>
     </div>
     <div id="stfAction"></div>
   </div>
@@ -41,7 +41,7 @@ registerView({
 });
 
 const stfState = { center: 0, q: '', role: '', page: 1 };
-const STF_TONES = { teacher: 'indigo', admin: 'slate', manager: 'emerald' };
+const STF_TONES = { teacher: 'indigo', admin: 'slate' };
 let stfRoles = {};                                  // роли из ответа api: { teacher: 'Преподаватель', … }
 let stfTimer = null;
 

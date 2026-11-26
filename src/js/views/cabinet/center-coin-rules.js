@@ -1,13 +1,13 @@
-/* Экран кабинета центра: Автоправила coin (CTR-CIN-010). Условия автоматического начисления coin по среднему проценту.
+/* Экран кабинета центра: Автоправила баллов (CTR-CIN-010). Условия автоматического начисления баллов по среднему проценту.
    В прототипе правила хранятся и включаются, но начисление по ним не выполняется (Q-019). */
 registerView({
   tab: 'center-coin-rules', path: 'center-coin-rules',
-  title: 'Автоправила coin', nav: { label: 'Автоправила coin', icon: 'sliders' },
+  title: 'Автоправила баллов', nav: { label: 'Автоправила баллов', icon: 'sliders' },
   template: `
 <main id="view-center-coin-rules" class="view-panel hidden flex-1 p-8 overflow-y-auto flex flex-col gap-5 animate-fadeIn">
   <div id="crlHead"></div>
   <div class="flex flex-wrap items-center gap-3"><div id="crlFilters"></div>${cabResetLink('crlReset', 'resetCrlFilters()')}</div>
-  ${cabTable('crl', ['Название', 'Область', 'Условие', 'Coin', 'Статус', 'Действия|r'], '44rem')}
+  ${cabTable('crl', ['Название', 'Область', 'Условие', 'Награда, баллы', 'Статус', 'Действия|r'], '44rem')}
 </main>
 `,
   render: renderCoinRules
@@ -24,7 +24,7 @@ async function renderCoinRules() {
     const r = await api.cabinet.coinRules.list(selectedCenterId, { scope: crlState.scope, page: crlState.page, pageSize: PAGE_SIZE });
     if (stale('center-coin-rules', my)) return;
     crlItems = r.items; crlScopes = r.scopes; crlCanEdit = r.center.status === 'active';
-    $('crlHead').innerHTML = cabHead('Автоправила coin', 'Условия, при которых ученик получает coin за посещаемость и успеваемость.', crlCanEdit ? cabAddButton('Добавить правило', 'openCrlForm()') : cabBlockedNote());
+    $('crlHead').innerHTML = cabHead('Автоправила баллов', 'Условия, при которых ученик получает баллы за посещаемость и успеваемость.', crlCanEdit ? cabAddButton('Добавить правило', 'openCrlForm()') : cabBlockedNote());
     $('crlFilters').innerHTML = cabSelect('Область', [{ value: '', label: 'Все' }, ...Object.entries(r.scopes).map(([value, label]) => ({ value, label }))], crlState.scope, 'setCrlScope(this.value)');
     $('crlReset').classList.toggle('hidden', !crlState.scope);
     $('crlRows').innerHTML = r.items.length ? r.items.map(x => `<tr>
@@ -51,12 +51,12 @@ async function crlToggle(id, active) {
 function openCrlForm(id) {
   const x = id ? crlItems.find(i => i.id === id) : null;
   openForm({
-    title: x ? 'Изменить правило' : 'Добавить правило', sub: 'Ученик получает coin, когда его средний процент не ниже порога',
+    title: x ? 'Изменить правило' : 'Добавить правило', sub: 'Ученик получает баллы, когда его средний процент не ниже порога',
     fields: [
       { key: 'name', label: 'Название', type: 'text', value: x ? x.name : '', placeholder: 'Например, Отличная посещаемость', required: true },
       { key: 'scope', label: 'Область', type: 'select', value: x ? x.scope : 'academy', options: Object.entries(crlScopes).map(([value, label]) => ({ value, label })), required: true },
       { key: 'threshold', label: 'Средний процент не ниже', type: 'number', value: x ? x.threshold : 90, required: true },
-      { key: 'coin', label: 'Награда, coin', type: 'number', value: x ? x.coin : 30, required: true }
+      { key: 'coin', label: 'Награда, баллы', type: 'number', value: x ? x.coin : 30, required: true }
     ],
     submitLabel: x ? 'Сохранить' : 'Добавить',
     onSubmit: async v => {

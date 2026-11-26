@@ -27,7 +27,7 @@
  ok('staff remove: another center cannot remove the record', !!(await rejects(api.cabinet.staff.remove(1,add1.id,{reason:'Чужой сотрудник'}),'NOT_FOUND')));
  const aud=await api.audit.list({q:'Math Lab'});
  ok('audit: staff.added and staff.removed are logged', ['staff.added','staff.removed'].every(a=>aud.items.some(e=>e.action===a)));
- ok('staff list: role filter, search, pagination', (await api.cabinet.staff.list(1,{role:'manager'})).total===2 && (await api.cabinet.staff.list(1,{q:'zzzz'})).total===0 && (await api.cabinet.staff.list(1,{page:2,pageSize:10})).items.length===4 && (await api.cabinet.staff.list(1)).items.length===10);
+ ok('staff list: role filter, search, pagination', (await api.cabinet.staff.list(1,{role:'admin'})).total+(await api.cabinet.staff.list(1,{role:'teacher'})).total===14 && (await api.cabinet.staff.list(1,{role:'admin'})).total>0 && (await api.cabinet.staff.list(1,{q:'zzzz'})).total===0 && (await api.cabinet.staff.list(1,{page:2,pageSize:10})).items.length===4 && (await api.cabinet.staff.list(1)).items.length===10);
  // ---- api: счета центра ----
  ok('center invoices: another center cannot pay a foreign invoice', !!(await rejects(api.cabinet.invoices.payOnline(1,'INV-1043'),'FORBIDDEN')));
  // ---- api: дашборд, пользователи, группы, поощрения, правила coin, аналитика ----
@@ -43,7 +43,6 @@
  ok('users block: reason required', !!(await rejects(api.cabinet.users.setStatus(9,stu.id,{status:'blocked',reason:'x'}),'VALIDATION')));
  await api.cabinet.users.setStatus(9,stu.id,{status:'blocked',reason:'Долгое отсутствие'});
  ok('users block: status changes, second block conflicts, audit has the entry', (await api.cabinet.users.list(9,{q:'Тест Ученик'})).items[0].status==='blocked' && !!(await rejects(api.cabinet.users.setStatus(9,stu.id,{status:'blocked',reason:'Ещё раз'}),'CONFLICT')) && (await api.audit.list({q:'Math Lab'})).items.some(e=>e.action==='student.blocked'));
- ok('coin grant: blocked student rejected', !!(await rejects(api.cabinet.analytics.grant(9,stu.id,{amount:50,reason:'Олимпиада'}),'CONFLICT')));
  await api.cabinet.users.setStatus(9,stu.id,{status:'active',reason:'Вопрос урегулирован'});
  const g9=await api.cabinet.groups.list(9);
  ok('groups: 4 groups with teachers, branches, filters from api', g9.total===4 && g9.options.teachers.length===3 && g9.items.every(g=>g.teacher!=='—' && g.branch) && (await api.cabinet.groups.list(9,{status:'archived'})).total===0);
@@ -60,19 +59,11 @@
  await api.cabinet.groups.update(9,ng.id,{...gOk,status:'archived'});
  ok('groups: archived group rejects roster changes', !!(await rejects(api.cabinet.groups.addStudent(9,ng.id,free[2].id),'CONFLICT')) && (await api.cabinet.groups.list(9,{status:'archived'})).total===1);
  ok('groups: another center cannot read the group', !!(await rejects(api.cabinet.groups.get(1,ng.id),'NOT_FOUND')));
- const rw9=await api.cabinet.rewards.list(9);
- ok('rewards: 4 seeded, status and price filters', rw9.total===4 && (await api.cabinet.rewards.list(9,{status:'archived'})).total===1 && (await api.cabinet.rewards.list(9,{priceFrom:500,priceTo:800})).total===2);
- ok('rewards create: validation and blocked center', Object.keys((await rejects(api.cabinet.rewards.create(9,{name:'a',category:'x',price:0}),'VALIDATION')).fields).join()==='name,category,price' && !!(await rejects(api.cabinet.rewards.create(17,{name:'Награда',category:'Мерч',price:100}),'CONFLICT')));
- const nr=await api.cabinet.rewards.create(9,{name:'Новая награда',category:'Мерч',price:300});
- await api.cabinet.rewards.update(9,nr.id,{status:'archived'});
- ok('rewards: created, archived, listed', (await api.cabinet.rewards.list(9)).total===5 && (await api.cabinet.rewards.list(9,{status:'archived'})).total===2);
  const cr9=await api.cabinet.coinRules.list(9);
- ok('coin rules: 2 seeded with conditions, scope filter', cr9.total===2 && cr9.items[0].condition==='Средний % ≥ 90' && (await api.cabinet.coinRules.list(9,{scope:'course'})).total===1);
- ok('coin rules: validation (threshold 101) and toggle', !!(await rejects(api.cabinet.coinRules.create(9,{name:'Правило',scope:'academy',threshold:101,coin:10}),'VALIDATION')) && (await api.cabinet.coinRules.update(9,cr9.items[0].id,{active:false})).active===false);
- const gr=await api.cabinet.analytics.grant(9,stu.id,{amount:50,reason:'Победа в олимпиаде'});
- ok('coin grant: coin added, audit has the entry, validation', gr.coin===50 && (await api.audit.list({q:'Math Lab'})).items.some(e=>e.action==='coin.granted') && Object.keys((await rejects(api.cabinet.analytics.grant(9,stu.id,{amount:0,reason:'x'}),'VALIDATION')).fields).join()==='amount,reason');
- const an=await api.cabinet.analytics.list(9,{coinFrom:50,coinTo:50});
- ok('analytics: coin range filter and totals', an.items.some(s=>s.id===stu.id) && an.totals.students===49 && an.totals.coin>0);
+ ok('points rules: 2 seeded with conditions, scope filter', cr9.total===2 && cr9.items[0].condition==='Средний % ≥ 90' && (await api.cabinet.coinRules.list(9,{scope:'course'})).total===1);
+ ok('points rules: validation (threshold 101) and toggle', !!(await rejects(api.cabinet.coinRules.create(9,{name:'Правило',scope:'academy',threshold:101,coin:10}),'VALIDATION')) && (await api.cabinet.coinRules.update(9,cr9.items[0].id,{active:false})).active===false);
+ const an=await api.cabinet.analytics.list(9,{coinFrom:100,coinTo:200});
+ ok('analytics: points range filter and totals', an.items.length>0 && an.items.every(s=>s.coin>=100 && s.coin<=200) && an.totals.students===49 && an.totals.coin>0);
 
  // ---- api: логины и пароли, расписание, состав центра ----
  const cr=add1.credentials;
@@ -106,9 +97,9 @@
  await goC('profile',7); await sleep(400);
  ok('profile: opens the center from the address with the "у лимита" flag', txt('view-profile').includes('Sitora Kids') && txt('view-profile').includes('У лимита') && document.getElementById('nav-profile').classList.contains('text-brand') && txt('pageTitle')==='Профиль центра');
  ok('sidebar shows the current center and its plan', txt('sideCenterName')==='Sitora Kids' && txt('sideCenterPlan').includes('Про') && document.getElementById('sideCenterLogo').getAttribute('src').includes('logo-7'));
- ok('menu: twelve tabs, the center id is kept in every link', document.querySelectorAll('#centerNav a').length===12 && [...document.querySelectorAll('#centerNav a')].every(a=>a.getAttribute('href').includes('center=7')));
+ ok('menu: eleven tabs, the center id is kept in every link', document.querySelectorAll('#centerNav a').length===11 && [...document.querySelectorAll('#centerNav a')].every(a=>a.getAttribute('href').includes('center=7')));
  ok('support banner is hidden when the cabinet is opened directly', document.getElementById('supportBanner').classList.contains('hidden'));
- for (const t of ['center-dashboard','profile','center-users','center-staff','center-branches','center-courses','center-groups','center-schedule','center-rewards','center-coin-rules','center-analytics','center-balance']) { await goC(t,1); await sleep(500); const el=document.getElementById('view-'+t); ok('tab '+t+' renders without error', !el.classList.contains('hidden') && el.innerText.length>60 && !/Не удалось загрузить/.test(el.innerText)); }
+ for (const t of ['center-dashboard','profile','center-users','center-staff','center-branches','center-courses','center-groups','center-schedule','center-coin-rules','center-analytics','center-balance']) { await goC(t,1); await sleep(500); const el=document.getElementById('view-'+t); ok('tab '+t+' renders without error', !el.classList.contains('hidden') && el.innerText.length>60 && !/Не удалось загрузить/.test(el.innerText)); }
  openCenter(5); await sleep(500);
  ok('switching the center keeps the tab and changes the address and data', location.hash.includes('center=5') && currentTab==='center-balance' && selectedCenterId===5 && txt('view-center-balance').includes('-150'));
  await goC('profile',5); await sleep(400);
@@ -125,8 +116,8 @@
  // ---- UI: сотрудники ----
  await goC('center-staff',1); await sleep(500);
  ok('staff UI: 10 rows on the first page, pager "из 14", limit 14 of 100', document.querySelectorAll('#stfRows tr').length===10 && txt('stfPager').includes('из 14') && txt('stfLimit').includes('14 из 100'));
- setStaffRole('manager'); await sleep(400);
- ok('staff UI: role chip filters the list and shows reset', document.querySelectorAll('#stfRows tr').length===2 && !document.getElementById('stfReset').classList.contains('hidden'));
+ setStaffRole('admin'); await sleep(400);
+ ok('staff UI: role chip filters the list and shows reset', document.querySelectorAll('#stfRows tr').length===(await api.cabinet.staff.list(1,{role:'admin'})).total && !document.getElementById('stfReset').classList.contains('hidden'));
  resetStaffFilters(); await sleep(400);
  ok('staff UI: reset returns the full list', document.querySelectorAll('#stfRows tr').length===10 && document.getElementById('stfReset').classList.contains('hidden'));
  stfState.q='zzzz'; await renderStaff(); await sleep(100);
@@ -211,12 +202,11 @@
   ok('groups UI: rows with teacher and seats, add button', document.querySelectorAll('#grpRows tr').length===5 && txt('grpHead').includes('Добавить группу'));
   await goC('center-group',9,'&group='+ng.id); await sleep(500);
   ok('group page UI: assessment block, roster, back link', ['Система оценивания','Ученики','ДЗ / день','Назад'].every(t=>txt('view-center-group').includes(t)) && !!document.querySelector('#view-center-group a[href^="#/center-groups"]'));
-  await goC('center-rewards',9); await sleep(500);
-  ok('rewards UI: rows and price column', document.querySelectorAll('#rwdRows tr').length===5 && txt('view-center-rewards').includes('Цена, coin'));
+  await goC(9); await sleep(500);
   await goC('center-coin-rules',9); await sleep(500);
-  ok('coin rules UI: condition and status shown', txt('view-center-coin-rules').includes('Средний % ≥ 90') && txt('view-center-coin-rules').includes('Выключено'));
+  ok('points rules UI: condition and status shown', txt('view-center-coin-rules').includes('Средний % ≥ 90') && txt('view-center-coin-rules').includes('Выключено'));
   await goC('center-analytics',9); await sleep(500);
-  ok('analytics UI: totals and ranking', txt('view-center-analytics').includes('Coin выдано') && document.querySelectorAll('#anlRows tr').length===10);
+  ok('analytics UI: totals and ranking', txt('view-center-analytics').includes('Баллов выдано') && document.querySelectorAll('#anlRows tr').length===10);
   await goC('center-groups',17); await sleep(500);
   ok('blocked center: no create buttons, a note instead', !txt('grpHead').includes('Добавить группу') && txt('grpHead').includes('заблокирован'));
   await goC('center-users',17); await sleep(400);

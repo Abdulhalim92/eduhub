@@ -30,7 +30,7 @@ async function renderUsers() {
     const r = await api.cabinet.users.list(selectedCenterId, { role: usrState.role, branch: usrState.branch, q: usrState.q, page: usrState.page, pageSize: PAGE_SIZE });
     if (stale('center-users', my)) return;
     usrGroups = r.groups; usrCanAdd = r.center.status === 'active';
-    $('usrHead').innerHTML = cabHead('Пользователи', 'Ученики, преподаватели, администраторы и менеджеры центра.', usrCanAdd ? cabAddButton('Добавить ученика', 'openUsrAdd()') : cabBlockedNote());
+    $('usrHead').innerHTML = cabHead('Пользователи', 'Ученики, преподаватели, администраторы центра.', usrCanAdd ? cabAddButton('Добавить ученика', 'openUsrAdd()') : cabBlockedNote());
     $('usrFilters').innerHTML = cabSelect('Роль', [{ value: '', label: 'Все' }, ...Object.entries(r.roles).map(([value, label]) => ({ value, label }))], usrState.role, 'setUsrRole(this.value)')
       + cabSelect('Филиал', [{ value: '', label: 'Все' }, ...r.branches.map(b => ({ value: b, label: b }))], usrState.branch, 'setUsrBranch(this.value)');
     $('usrReset').classList.toggle('hidden', !usrState.role && !usrState.branch && !usrState.q);
@@ -75,7 +75,7 @@ function openUsrStatus(id, name, status) {
   const block = status === 'blocked';
   openForm({
     title: block ? 'Заблокировать ученика' : 'Вернуть доступ ученику', sub: name, danger: block,
-    note: block ? 'Ученик не сможет входить и получать coin. Действие записывается в журнал аудита.' : 'Ученик снова сможет входить и получать coin. Действие записывается в журнал аудита.',
+    note: block ? 'Ученик не сможет входить и получать баллы. Действие записывается в журнал аудита.' : 'Ученик снова сможет входить и получать баллы. Действие записывается в журнал аудита.',
     fields: [{ key: 'reason', label: 'Причина', type: 'textarea', rows: 2, placeholder: block ? 'Например, долгое отсутствие без связи' : 'Например, вопрос урегулирован', required: true }],
     submitLabel: block ? 'Заблокировать' : 'Вернуть доступ',
     onSubmit: async v => { await api.cabinet.users.setStatus(selectedCenterId, id, { status, reason: v.reason }); showToast(block ? 'Ученик заблокирован' : 'Доступ возвращён', 'success'); await renderUsers(); }
