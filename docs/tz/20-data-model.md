@@ -107,7 +107,7 @@
 ## Индексы (минимум)
 
 - `payments (tenant_id, student_id, period)`, `payments (tenant_id, status, received_at)` для сверки и отчётов.
-- Уникальные: `payments (tenant_id, method, tx_no) WHERE method = 'p2p'` (`BR-033`); `webhook_events (provider, event_id)`; `charges (tenant_id, student_id, group_id, period)`; идемпотентность — уникальность (`tenant_id`, `idempotency_key`).
+- Уникальные: `payments (tenant_id, method, tx_no) WHERE method = 'p2p'` (`BR-033`); `webhook_events (provider, event_id)`; `charges (tenant_id, student_id, group_id, period)`; идемпотентность — уникальность (`tenant_id`, `account_id`, операция, `idempotency_key`).
 - `point_lots (tenant_id, student_id, expires_at)` для списания «сначала ранний срок» и задачи сгорания.
 - `audit_log (scope, tenant_id, occurred_at DESC)`, `audit_log (entity_type, entity_id)`.
 - `outbox (status, next_at)` частичный по `status = 'new'`.

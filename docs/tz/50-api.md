@@ -44,7 +44,7 @@
 | `RATE_LIMITED` | 429 | Превышен лимит запросов |
 | `INTERNAL` | 500 | Внутренняя ошибка без деталей (`requestId` для поиска) |
 
-Коды предметных ошибок (`CENTER_BLOCKED`, `LIMIT_STAFF`, `BALANCE_INSUFFICIENT`, `CHARGE_NOT_FOUND`, `TX_DUPLICATE`, `SELF_RECONCILE`, `BRANCH_FORBIDDEN`, `REASON_REQUIRED`, `POINTS_INSUFFICIENT`, …) входят в поле `code` вместе с общим HTTP-классом; полный список ведётся в `openapi.yaml`.
+Коды предметных ошибок (`CENTER_BLOCKED`, `LIMIT_STAFF`, `BALANCE_INSUFFICIENT`, `CHARGE_NOT_FOUND`, `TX_DUPLICATE`, `SELF_RECONCILE`, `REASON_REQUIRED`, `POINTS_INSUFFICIENT`, …) входят в поле `code` вместе с общим HTTP-классом; полный список ведётся в `openapi.yaml`.
 
 ## Методы платформы и центра по требованиям
 
