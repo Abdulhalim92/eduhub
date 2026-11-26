@@ -1,6 +1,6 @@
 # 50. API
 
-Контракт данных — шапка `src/js/core/api.js` (таблица «метод → REST»). Этот файл фиксирует соглашения и перечисляет методы, которых в прототипе нет. Расхождение между кодом бэкенда и контрактом решается правкой спецификации (`Q-…`), а не молча в коде. Описание публикуется как OpenAPI (`backend/api/openapi.yaml`), клиентские типы и проверка схемы генерируются из него.
+Контракт API определяется требованиями спецификации (`docs/spec/src/`), а не интерфейсами клиентов: клиенты и макеты меняются, бэкенд — нет. Этот файл фиксирует соглашения и перечисляет методы по модулям; пути ниже — рекомендованные и окончательно закрепляются в OpenAPI. Расхождение между кодом и требованием решается правкой спецификации (`Q-…`), а не молча в коде. Описание публикуется как OpenAPI (`backend/api/openapi.yaml`), клиентские типы и проверка схемы генерируются из него.
 
 ## Соглашения
 
@@ -8,7 +8,7 @@
 |:--|:--|
 | Базовый путь | `/api/v1`; обратная совместимость внутри версии, устаревание через `Deprecation` и срок |
 | Формат | JSON, UTF-8, ключи `camelCase`, деньги целыми дирамами в полях `…Dirams`, даты ISO 8601 UTC |
-| Деньги в прототипе | Прототип оперирует целыми сомони; граница перевода — слой DTO, в сервисах только дирамы |
+| Деньги | Во всех полях API и в сервисах только целые дирамы (`BR-027`); перевод в сомони делает клиент при показе |
 | Аутентификация | `Authorization: Bearer <access>`; публичные: `/auth/*`, `/catalog/*`, `/webhooks/*` |
 | Центр | Центр берётся из токена; в путях `/centers/{id}/…` или `/cabinet/centers/{c}/…` идентификатор обязан совпасть с токеном, кроме методов платформы |
 | Идемпотентность | Заголовок `Idempotency-Key` обязателен для `POST` и `PUT` с деньгами, тарифом, балансом, баллами, доступом, SMS |
@@ -20,7 +20,7 @@
 
 ## Формат ошибки
 
-Повторяет `ApiError(code, message, fields)` прототипа:
+Единый формат: код, сообщение, ошибки по полям:
 
 ```json
 {
@@ -44,11 +44,11 @@
 | `RATE_LIMITED` | 429 | Превышен лимит запросов |
 | `INTERNAL` | 500 | Внутренняя ошибка без деталей (`requestId` для поиска) |
 
-Коды предметных ошибок (`CENTER_BLOCKED`, `LIMIT_STAFF`, `BALANCE_INSUFFICIENT`, `CHARGE_NOT_FOUND`, `TX_DUPLICATE`, `SELF_RECONCILE`, `REASON_REQUIRED`, `POINTS_INSUFFICIENT`, …) входят в поле `code` вместе с общим HTTP-классом; полный список ведётся в `openapi.yaml`.
+Коды предметных ошибок (`CENTER_BLOCKED`, `LIMIT_STAFF`, `BALANCE_INSUFFICIENT`, `CHARGE_NOT_FOUND`, `TX_DUPLICATE`, `SELF_RECONCILE`, `BRANCH_FORBIDDEN`, `REASON_REQUIRED`, `POINTS_INSUFFICIENT`, …) входят в поле `code` вместе с общим HTTP-классом; полный список ведётся в `openapi.yaml`.
 
-## Методы из прототипа (реализовать без изменения контракта)
+## Методы платформы и центра по требованиям
 
-Источник — шапка `api.js`. Сгруппировано по модулям.
+Источник — требования `PLT-…` и `CTR-…` спецификации. Сгруппировано по модулям; пути рекомендованные.
 
 | Модуль | Методы (REST) |
 |:--|:--|
@@ -60,9 +60,9 @@
 | `moderation` | `GET /moderation`, `POST /moderation/{id}/decision`, `POST /moderation/{id}/requeue`, `/centers/{id}/branches`, `GET /geocode` |
 | `audit`, `support` | `GET /audit`, `POST /support/sessions` |
 | `identity` | `POST /auth/login`, `POST /auth/password`, `POST /centers/{id}/admin-access`, `POST /cabinet/centers/{c}/access` |
-| `people`, `learning`, `points` | `/cabinet/centers/{c}/dashboard`, `/schedule`, `/users`, `/students`, `/students/{id}/status`, `/groups` и состав, `/rewards`, `/coin-rules`, `/analytics`, `…/students/{sid}/coin`, `/centers/{id}/staff` |
+| `people`, `learning`, `points` | `/cabinet/centers/{c}/dashboard`, `/schedule`, `/users`, `/students`, `/students/{id}/status`, `/groups` и состав, `/points/rules` (автоправила), `/analytics`, `/students/{id}/points`, `/centers/{id}/staff` |
 
-Метод `billing.simulateOnlinePayment` и `sync.*` в прототипе служебные; на проде вместо них вебхуки шлюза.
+Онлайн-оплата счетов закрывается вебхуками шлюза, а не вызовом клиента.
 
 ## Новые методы (спецификация 2.4)
 
@@ -88,11 +88,12 @@
 | `finance.charges.adjust` | `POST /charges/{id}/adjustments {amountDirams, reason}` | `BR-032`, причина обязательна |
 | `finance.payments.record` | `POST /payments` | `Idempotency-Key`; тело: связка, месяц, сумма, способ, p2p-поля |
 | `finance.payments.list` | `GET /payments?status=&method=&from=&to=&cashierId=` | Сверка и отчёты |
-| `finance.payments.reconcile` | `POST /payments/{id}/reconcile` | Не собственный платёж |
+| `finance.payments.reconcile` | `POST /payments/{id}/reconcile {selfConfirm?}` | Свой платёж только с `selfConfirm`, отметка `selfReconciled` (`BR-040`) |
 | `finance.payments.reverse` | `POST /payments/{id}/reversals {amountDirams, reason}` | Сторно, `BR-031` |
 | `finance.receipts.get` | `GET /payments/{id}/receipt` | PDF |
 | `finance.shifts.open/close` | `POST /shifts` · `POST /shifts/{id}/close` | Z-отчёт |
 | `finance.acquiring.settings` | `PUT /finance/acquiring` | Ключи шифруются |
+| `finance.refunds` | `POST /payments/{id}/refunds {amountDirams, reason}` | `CTR-FIN-090` |
 | `finance.balance` | `GET /students/{id}/finance` | Долги по связкам, переплата, баллы |
 | `webhooks.acquiring` | `POST /webhooks/acquiring/{provider}` | Публичный, подпись |
 | `webhooks.billing` | `POST /webhooks/billing/{provider}` | Онлайн-оплата счетов платформы |
@@ -119,7 +120,10 @@
 | `learning.schedule.exception` | `POST /schedule/exceptions` (перенос, замена, каникулы) |
 | `learning.rooms` | `GET/POST /rooms` |
 | `learning.homework`, `tests` | `/homework`, `/tests`, `/tests/{id}/attempts` |
-| `leads` | `GET/POST /leads`, `POST /leads/{id}/trial` |
+| `leads` | `GET/POST /leads`, `POST /leads/{id}/trial` (запись на пробный), `POST /leads/{id}/enroll`, `POST /leads/{id}/decline` |
+| `discounts` | `GET/POST /discount-rules`, `PATCH /discount-rules/{id}` (владелец), `POST /students/{id}/discounts {ruleId, reason}`, `DELETE /students/{id}/discounts/{aid}` |
+| `settings` | `GET /settings`, `PUT /settings/{key}` (владелец, «было → стало» в аудите) |
+| `ownership` | `POST /centers/{id}/ownership-transfer {newOwnerPhone, reason}` (платформа, `BR-039`) |
 
 ### Родитель и ученик
 

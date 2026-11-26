@@ -26,7 +26,7 @@
 | `credentials` | `account_id`, `login` (уникален без учёта регистра), `password_hash` (argon2id), `must_change`, `failed_attempts`, `locked_until` (`BR-025`) |
 | `otp_codes` | `phone`, `code_hash`, `expires_at`, `attempts`, `used_at`, `ip` |
 | `sessions` | `id`, `account_id`, `refresh_hash`, `device`, `ip`, `expires_at`, `revoked_at` |
-| `memberships` | `account_id`, `tenant_id`, `role`, `status`, `branch_id` null, `created_by`; уникальна пара (`account_id`, `tenant_id`, `role`) |
+| `memberships` | `account_id`, `tenant_id`, `role`, `status`, `branch_id` (обязательно для `admin` и `cashier`, `BR-038`), `created_by`; уникальна пара (`account_id`, `tenant_id`, `role`); у человека может быть несколько строк, по одной на роль (`BR-040`) |
 | `guardians` | `tenant_id`, `student_id`, `parent_account_id`, `relation` (`BR-036`) |
 | `platform_staff` | `account_id`, `role` (`owner`, `manager`, `finance`, `moderator`, `support`) |
 
@@ -65,7 +65,8 @@
 | `sessions_held` | конкретное занятие: дата, группа, `status` (`planned`, `held`, `cancelled`), преподаватель факта |
 | `attendance` | `session_id`, `student_id`, `status` (`present`, `late`, `absent`, `excused`), минуты, оценка, тег |
 | `homework`, `tests`, `test_attempts` | ДЗ с файлом и сроком, тест с автопроверкой выбора ответа (`LRN-TCH-030`) |
-| `leads` | воронка и пробные уроки (`CTR-CRM-010`) |
+| `leads` | заявка и пробный урок без аккаунтов: имя ребёнка, телефон родителя, группа, дата пробного, статус (`new`, `trial_done`, `enrolled`, `declined`) (`CTR-CRM-010`) |
+| `courses_center`, `materials`, `tests` | курсы, материалы и тесты центра принадлежат центру, `author_id` указывает автора и не даёт права владения |
 
 Ограничение расписания `BR-024` проверяется в сервисе в транзакции с блокировкой преподавателя; дополнительно `EXCLUDE USING gist` по `tstzrange` как защита от гонок, если расписание хранится в виде конкретных интервалов.
 
@@ -74,20 +75,24 @@
 | Таблица | Ключевые поля |
 |:--|:--|
 | `charges` | `tenant_id`, `id`, `student_id`, `group_id`, `period` (первое число месяца), `amount_dirams`, `status` (`open`, `paid`), уникальна (`tenant_id`, `student_id`, `group_id`, `period`) |
+| `charge_lines` | `charge_id`, `kind` (`base`, `discount`), `amount_dirams` со знаком, `discount_assignment_id` null; к оплате — сумма строк (`BR-037`) |
 | `charge_adjustments` | `charge_id`, `before_dirams`, `after_dirams`, `reason` (не пусто), `actor_id`; только добавление (`BR-032`) |
-| `payments` | `tenant_id`, `id`, `student_id`, `group_id`, `period`, `amount_dirams` > 0, `method` (`cash`, `acquiring`, `p2p`), `status` (`accepted`, `reconciled`, `reversed`), `cashier_id`, `shift_id`, `tx_no`, `card_last4`, `proof_file_id`, `received_at`, `reconciled_by`, `reconciled_at`, `receipt_no`, `idempotency_key` |
+| `payments` | `tenant_id`, `id`, `student_id`, `group_id`, `period`, `amount_dirams` > 0, `method` (`cash`, `acquiring`, `p2p`), `status` (`accepted`, `reconciled`, `reversed`), `self_reconciled`, `cashier_id`, `shift_id`, `tx_no`, `card_last4`, `proof_file_id`, `received_at`, `reconciled_by`, `reconciled_at`, `receipt_no`, `idempotency_key` |
 | `payment_allocations` | `payment_id`, `charge_id` null, `amount_dirams`; запись без `charge_id` — лишний остаток (`BR-029`) |
 | `payment_reversals` | `payment_id`, `amount_dirams`, `reason`, `actor_id`; частичное и полное сторно (`BR-031`) |
 | `points_payments` | оплата баллами: `student_id`, `charge_id`, `points`, `rate_dirams_per_point`, `amount_dirams` |
 | `point_lots` | `tenant_id`, `student_id`, `issued_at`, `expires_at`, `initial_points`, `source` (`teacher`, `rule`), `source_ref` |
 | `point_movements` | `lot_id`, `delta_points`, `kind` (`issue`, `spend`, `expire`, `restore`), `ref`; остаток лота — сумма движений (кэш с проверкой) |
+| `discount_rules` | `tenant_id`, название, вид (`percent`, `fixed`), значение, `valid_from`, `valid_to`, `status` (`CTR-FIN-100`) |
+| `discount_assignments` | `student_id`, `rule_id`, `reason` (не пусто), `assigned_by`, `valid_to`; назначение и снятие пишутся в аудит (`BR-037`) |
+| `center_settings` | `tenant_id`, `branch_id` null, ключ, значение; изменения пишутся в аудит «было → стало» (`CTR-SET-010`) |
 | `cash_shifts` | `cashier_id`, `opened_at`, `closed_at`, итоги по способам |
 | `expense_categories`, `expenses` | категории расширяемы центром; `amount_dirams`, `recurrence`, `status` (`active`, `reversed`), `reason` при сторно (`CTR-FIN-080`) |
 | `payroll_schemes`, `payroll_accruals`, `payroll_manual` | схемы, начисления после «Проведён», аванс, штраф, премия с причиной (`CTR-PAY-*`) |
 | `acquiring_settings` | ключи провайдера в зашифрованном виде (`NFR-SEC-040`) |
 | `webhook_events` | `provider`, `event_id` (уникален по провайдеру), `received_at`, `status` — дедупликация |
 
-Долг по связке и месяцу: `charges.amount_dirams − Σ allocations(charge) − Σ points_payments(charge)`. Остаток хранится как проверяемый кэш или вычисляется представлением; при расхождении кэша и суммы сработает контрольная задача сверки.
+Долг по связке и месяцу: `Σ charge_lines(charge) − Σ allocations(charge) − Σ points_payments(charge)`. Остаток хранится как проверяемый кэш или вычисляется представлением; при расхождении кэша и суммы сработает контрольная задача сверки.
 
 ### Журналы и очереди (`audit`, `notify`)
 
