@@ -135,6 +135,46 @@ func TestOtpBlockedStudentRejected(t *testing.T) {
 	}
 }
 
+func TestGuardianAttachListDetach(t *testing.T) {
+	db, _ := freshDB(t)
+	_, center, _, _, students := journalGroup(t, db)
+	childID := students[0]
+	svc, _ := newIdentity(db)
+	ctx := context.Background()
+
+	g, err := svc.AttachGuardian(ctx, actor(), center, childID, identity.AttachGuardianInput{Phone: "+992 90 777 00 02", Relation: "Отец"})
+	if err != nil || g.AccountID == 0 || g.Phone != "+992907770002" {
+		t.Fatalf("привязка опекуна: %+v / %v", g, err)
+	}
+	// Заведены аккаунт и членство parent.
+	var n int64
+	db.Raw("SELECT count(*) FROM memberships WHERE account_id = ? AND tenant_id = ? AND role = 'parent'", g.AccountID, center).Scan(&n)
+	if n != 1 {
+		t.Fatalf("ожидалось членство parent, got %d", n)
+	}
+	// Список опекунов ученика.
+	list, err := svc.ListGuardians(ctx, center, childID)
+	if err != nil || len(list) != 1 || list[0].Relation != "Отец" {
+		t.Fatalf("список опекунов: %+v / %v", list, err)
+	}
+	// Чужой центр: ученик там не найден.
+	if _, err := svc.AttachGuardian(ctx, actor(), center+99999, childID, identity.AttachGuardianInput{Phone: "+992907770003"}); asAPIError(t, err).Code != apierr.CodeNotFound {
+		t.Fatal("ученик другого центра должен быть недоступен")
+	}
+	// Снятие связи.
+	if err := svc.DetachGuardian(ctx, actor(), center, childID, g.AccountID); err != nil {
+		t.Fatalf("снятие опекуна: %v", err)
+	}
+	after, _ := svc.ListGuardians(ctx, center, childID)
+	if len(after) != 1 || after[0].Status != "revoked" {
+		t.Fatalf("после снятия статус должен быть revoked: %+v", after)
+	}
+	// Повторное снятие — связи уже нет.
+	if err := svc.DetachGuardian(ctx, actor(), center, childID, g.AccountID); asAPIError(t, err).Code != apierr.CodeNotFound {
+		t.Fatal("повторное снятие должно давать NOT_FOUND")
+	}
+}
+
 func TestOtpNoMembershipReturnsSelectToken(t *testing.T) {
 	db, _ := freshDB(t)
 	seedProPlan(t, db)

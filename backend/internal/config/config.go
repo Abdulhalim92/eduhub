@@ -10,6 +10,7 @@ import (
 
 // Config — все параметры запуска сервиса.
 type Config struct {
+	Env           string // dev | staging | production — влияет на диагностические логи
 	Port          string
 	DatabaseURL   string
 	JWTSecret     string
@@ -18,10 +19,14 @@ type Config struct {
 	BcryptCost    int
 }
 
+// IsProd сообщает, что сервис запущен в продакшене (строгие логи без диагностических секретов).
+func (c Config) IsProd() bool { return c.Env == "production" }
+
 // Load собирает конфиг из окружения, подставляя безопасные для разработки значения.
 // Для JWTSecret в проде секрет обязан прийти из окружения (см. security.md).
 func Load() (Config, error) {
 	cfg := Config{
+		Env:           env("APP_ENV", "dev"),
 		Port:          env("PORT", "8080"),
 		DatabaseURL:   env("DATABASE_URL", "postgres://eduhub:eduhub@127.0.0.1:5433/eduhub?sslmode=disable"),
 		JWTSecret:     env("JWT_SECRET", "dev-insecure-secret-change-me"),

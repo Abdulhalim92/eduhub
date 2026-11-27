@@ -22,13 +22,26 @@ type SmsSender interface {
 	Send(ctx context.Context, phone, code string) error
 }
 
-// LogSender — заглушка отправки SMS: пишет код в лог (только для dev/стенда; не для продакшена).
-type LogSender struct{}
+// LogSender — заглушка отправки SMS. Телефон маскируется; код пишется в лог только вне продакшена
+// (ShowCode=true для dev/стенда), чтобы не оставлять секрет в проде (security.md).
+type LogSender struct{ ShowCode bool }
 
-// Send логирует код (dev-заглушка; реальный шлюз не логирует секреты).
-func (LogSender) Send(_ context.Context, phone, code string) error {
-	slog.Info("otp (dev stub)", "phone", phone, "code", code)
+// Send логирует факт отправки; код — только при ShowCode (dev/стенд).
+func (s LogSender) Send(_ context.Context, phone, code string) error {
+	if s.ShowCode {
+		slog.Info("otp (dev stub)", "phone", maskPhone(phone), "code", code)
+		return nil
+	}
+	slog.Info("otp sent", "phone", maskPhone(phone))
 	return nil
+}
+
+// maskPhone прячет середину номера (оставляет код страны и 2 последние цифры).
+func maskPhone(phone string) string {
+	if len(phone) <= 5 {
+		return "***"
+	}
+	return phone[:4] + "***" + phone[len(phone)-2:]
 }
 
 // Service реализует вход по OTP, выбор членства и профиль /me.

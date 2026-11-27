@@ -121,6 +121,30 @@ func seedMobileDemo(ctx context.Context, db *gorm.DB) error {
 		return err
 	}
 	slog.Info("mobile demo student linked", "phone", phone, "studentId", studentID, "accountId", accountID)
+
+	// Демо-родитель, привязанный к тому же ученику (кабинет родителя).
+	const parentPhone = "+992900000002"
+	var parentAccID int64
+	if err := db.WithContext(ctx).Raw(`
+		INSERT INTO accounts (phone, display_name, locale, status)
+		VALUES (?, 'Демо Родитель', 'ru', 'active')
+		ON CONFLICT (phone) DO UPDATE SET updated_at = now()
+		RETURNING id`, parentPhone).Scan(&parentAccID).Error; err != nil {
+		return err
+	}
+	if err := db.WithContext(ctx).Exec(`
+		INSERT INTO memberships (account_id, tenant_id, role, status, created_by)
+		VALUES (?, 1, 'parent', 'active', 'seed')
+		ON CONFLICT (account_id, tenant_id, role) DO NOTHING`, parentAccID).Error; err != nil {
+		return err
+	}
+	if err := db.WithContext(ctx).Exec(`
+		INSERT INTO student_guardians (tenant_id, student_id, account_id, relation, status, created_by)
+		VALUES (1, ?, ?, 'Родитель', 'active', 'seed')
+		ON CONFLICT (student_id, account_id) DO NOTHING`, studentID, parentAccID).Error; err != nil {
+		return err
+	}
+	slog.Info("mobile demo parent linked", "phone", parentPhone, "accountId", parentAccID, "childStudentId", studentID)
 	return nil
 }
 

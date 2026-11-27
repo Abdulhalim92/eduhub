@@ -34,6 +34,21 @@ type Membership struct {
 // TableName задаёт имя таблицы для GORM.
 func (Membership) TableName() string { return "memberships" }
 
+// StudentGuardian — связь родителя/опекуна с учеником (BR-036). Заводит администратор центра.
+type StudentGuardian struct {
+	ID        int64     `gorm:"column:id;primaryKey"`
+	TenantID  int64     `gorm:"column:tenant_id"`
+	StudentID int64     `gorm:"column:student_id"`
+	AccountID int64     `gorm:"column:account_id"`
+	Relation  string    `gorm:"column:relation"`
+	Status    string    `gorm:"column:status"`
+	CreatedBy string    `gorm:"column:created_by"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+}
+
+// TableName задаёт имя таблицы для GORM.
+func (StudentGuardian) TableName() string { return "student_guardians" }
+
 // OtpCode — одноразовый код входа по SMS (хранится хэш).
 type OtpCode struct {
 	Phone       string    `gorm:"column:phone;primaryKey"`

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -179,6 +180,70 @@ func (r *Repository) Memberships(ctx context.Context, tx *gorm.DB, accountID int
 		Order("m.tenant_id, m.role").Scan(&out).Error
 	if err != nil {
 		return nil, fmt.Errorf("identity: memberships: %w", err)
+	}
+	return out, nil
+}
+
+// StudentInCenter проверяет, что ученик принадлежит центру, и возвращает его имя.
+func (r *Repository) StudentInCenter(ctx context.Context, tx *gorm.DB, centerID, studentID int64) (string, bool, error) {
+	var name string
+	res := tx.WithContext(ctx).Table("students").Select("name").
+		Where("id = ? AND center_id = ?", studentID, centerID).Scan(&name)
+	if res.Error != nil {
+		return "", false, fmt.Errorf("identity: student in center: %w", res.Error)
+	}
+	return name, res.RowsAffected > 0, nil
+}
+
+// UpsertGuardian заводит/реактивирует связь опекуна с учеником.
+func (r *Repository) UpsertGuardian(ctx context.Context, tx *gorm.DB, g *StudentGuardian) error {
+	var existing StudentGuardian
+	err := tx.WithContext(ctx).First(&existing, "student_id = ? AND account_id = ?", g.StudentID, g.AccountID).Error
+	if err == nil {
+		g.ID = existing.ID
+		return tx.WithContext(ctx).Model(&StudentGuardian{}).Where("id = ?", existing.ID).
+			Updates(map[string]any{"relation": g.Relation, "status": MembershipActive}).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("identity: find guardian: %w", err)
+	}
+	if cerr := tx.WithContext(ctx).Create(g).Error; cerr != nil {
+		return fmt.Errorf("identity: create guardian: %w", cerr)
+	}
+	return nil
+}
+
+// RevokeGuardian снимает связь опекуна (status=revoked). Возвращает, была ли активная связь.
+func (r *Repository) RevokeGuardian(ctx context.Context, tx *gorm.DB, centerID, studentID, accountID int64) (bool, error) {
+	res := tx.WithContext(ctx).Model(&StudentGuardian{}).
+		Where("tenant_id = ? AND student_id = ? AND account_id = ? AND status = ?", centerID, studentID, accountID, MembershipActive).
+		Update("status", MembershipRevoked)
+	if res.Error != nil {
+		return false, fmt.Errorf("identity: revoke guardian: %w", res.Error)
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// GuardianInfo — опекун ученика с данными аккаунта.
+type GuardianInfo struct {
+	AccountID int64     `gorm:"column:account_id"`
+	Phone     string    `gorm:"column:phone"`
+	Name      string    `gorm:"column:display_name"`
+	Relation  string    `gorm:"column:relation"`
+	Status    string    `gorm:"column:status"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+}
+
+// GuardiansOfStudent возвращает опекунов ученика (активные и снятые).
+func (r *Repository) GuardiansOfStudent(ctx context.Context, centerID, studentID int64) ([]GuardianInfo, error) {
+	var out []GuardianInfo
+	err := r.db.WithContext(ctx).Table("student_guardians AS g").
+		Select("g.account_id, a.phone, a.display_name, g.relation, g.status, g.created_at").
+		Joins("JOIN accounts a ON a.id = g.account_id").
+		Where("g.tenant_id = ? AND g.student_id = ?", centerID, studentID).
+		Order("g.status, g.id").Scan(&out).Error
+	if err != nil {
+		return nil, fmt.Errorf("identity: guardians: %w", err)
 	}
 	return out, nil
 }

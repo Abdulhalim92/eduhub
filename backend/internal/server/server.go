@@ -22,6 +22,7 @@ import (
 	"github.com/line/eduhub-backend/internal/modules/journal"
 	"github.com/line/eduhub-backend/internal/modules/marketplace"
 	"github.com/line/eduhub-backend/internal/modules/moderation"
+	"github.com/line/eduhub-backend/internal/modules/parent"
 	"github.com/line/eduhub-backend/internal/modules/plans"
 	"github.com/line/eduhub-backend/internal/modules/sms"
 	"github.com/line/eduhub-backend/internal/modules/student"
@@ -40,18 +41,20 @@ func New(cfg config.Config, db *gorm.DB) *gin.Engine {
 	idem := idempotency.New(db)
 	tokens := auth.NewTokenService(cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
-	// Публичные маршруты входа.
+	// Публичные маршруты (вход, OTP, каталог) — под ограничением частоты по IP (security.md, ADR 0023).
+	public := r.Group("", middleware.RateLimit(60))
+
 	authSvc := auth.NewService(db, auth.NewRepository(db), tokens, rec, cfg.BcryptCost)
-	auth.NewHandler(authSvc).Register(r)
+	auth.NewHandler(authSvc).Register(public)
 
 	// Мобильный контур (ТЗ v2.5): аккаунт по телефону + членства + вход по OTP.
-	identitySvc := identity.NewService(identity.NewRepository(db), tokens, identity.LogSender{}, rec)
+	identitySvc := identity.NewService(identity.NewRepository(db), tokens, identity.LogSender{ShowCode: !cfg.IsProd()}, rec)
 	identityH := identity.NewHandler(identitySvc)
-	identityH.RegisterPublic(r) // /auth/otp/*
+	identityH.RegisterPublic(public) // /auth/otp/*
 
 	// Публичный каталог филиалов и заявки на пробный урок (LRN-CAT-010, CTR-CRM-010).
 	catalogH := catalog.NewHandler(catalog.NewService(catalog.NewRepository(db), rec))
-	catalogH.RegisterPublic(r) // /catalog/*
+	catalogH.RegisterPublic(public) // /catalog/*
 
 	// Защищённые маршруты: требуется валидный токен.
 	api := r.Group("/", auth.Middleware(tokens))
@@ -100,7 +103,11 @@ func New(cfg config.Config, db *gorm.DB) *gin.Engine {
 	journalSvc.SetConductHook(cashier.NewHook(cashierRepo, rec))
 
 	// Кабинет ученика (LRN-PRN-030, role=student): расписание и оценивание тестов — из журнала.
-	student.NewHandler(student.NewService(student.NewRepository(db), journalSvc, journalSvc)).Register(api)
+	studentSvc := student.NewService(student.NewRepository(db), journalSvc, journalSvc)
+	student.NewHandler(studentSvc).Register(api)
+
+	// Кабинет родителя (LRN-PRN-020, role=parent): дети и их финансы/расписание — данные ребёнка из student.
+	parent.NewHandler(parent.NewService(parent.NewRepository(db), studentSvc)).Register(api)
 
 	return r
 }

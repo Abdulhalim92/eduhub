@@ -1,6 +1,8 @@
 package identity
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/line/eduhub-backend/internal/auth"
 	"github.com/line/eduhub-backend/pkg/apierr"
@@ -25,6 +27,12 @@ func (h *Handler) RegisterPublic(r gin.IRoutes) {
 func (h *Handler) RegisterProtected(r gin.IRouter) {
 	r.POST("/auth/membership", h.selectMembership)
 	r.GET("/me", h.me)
+
+	// Привязка опекунов к ученику — администратор своего центра или SuperAdmin.
+	admin := auth.RequireRole(auth.RoleSuperAdmin, auth.RoleCenterAdmin)
+	r.GET("/centers/:id/students/:sid/guardians", admin, h.listGuardians)
+	r.POST("/centers/:id/students/:sid/guardians", admin, h.attachGuardian)
+	r.DELETE("/centers/:id/students/:sid/guardians/:aid", admin, h.detachGuardian)
 }
 
 func (h *Handler) otpRequest(c *gin.Context) {
@@ -85,4 +93,78 @@ func (h *Handler) me(c *gin.Context) {
 		return
 	}
 	httpx.OK(c, res)
+}
+
+func (h *Handler) listGuardians(c *gin.Context) {
+	id, sid, ok := guardianParams(c)
+	if !ok {
+		return
+	}
+	res, err := h.svc.ListGuardians(c.Request.Context(), id, sid)
+	if err != nil {
+		httpx.Fail(c, err)
+		return
+	}
+	httpx.OK(c, res)
+}
+
+func (h *Handler) attachGuardian(c *gin.Context) {
+	id, sid, ok := guardianParams(c)
+	if !ok {
+		return
+	}
+	var req AttachGuardianInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Fail(c, apierr.New(apierr.CodeValidation, "Некорректное тело запроса"))
+		return
+	}
+	res, err := h.svc.AttachGuardian(c.Request.Context(), auth.ActorFrom(c), id, sid, req)
+	if err != nil {
+		httpx.Fail(c, err)
+		return
+	}
+	httpx.OK(c, res)
+}
+
+func (h *Handler) detachGuardian(c *gin.Context) {
+	id, sid, ok := guardianParams(c)
+	if !ok {
+		return
+	}
+	aid, err := strconv.ParseInt(c.Param("aid"), 10, 64)
+	if err != nil {
+		httpx.Fail(c, apierr.New(apierr.CodeValidation, "Некорректный идентификатор"))
+		return
+	}
+	if err := h.svc.DetachGuardian(c.Request.Context(), auth.ActorFrom(c), id, sid, aid); err != nil {
+		httpx.Fail(c, err)
+		return
+	}
+	httpx.OK(c, gin.H{"status": "revoked"})
+}
+
+// guardianParams читает id центра и ученика с проверкой доступа к центру.
+func guardianParams(c *gin.Context) (centerID, studentID int64, ok bool) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		httpx.Fail(c, apierr.New(apierr.CodeValidation, "Некорректный идентификатор"))
+		return 0, 0, false
+	}
+	p, authed := auth.Principal(c)
+	if !authed {
+		httpx.Fail(c, apierr.New(apierr.CodeUnauthorized, "Требуется авторизация"))
+		return 0, 0, false
+	}
+	allowed := p.Role == auth.RoleSuperAdmin ||
+		(p.Role == auth.RoleCenterAdmin && p.TenantID != nil && *p.TenantID == id)
+	if !allowed {
+		httpx.Fail(c, apierr.New(apierr.CodeForbidden, "Нет доступа к этому центру"))
+		return 0, 0, false
+	}
+	sid, err := strconv.ParseInt(c.Param("sid"), 10, 64)
+	if err != nil {
+		httpx.Fail(c, apierr.New(apierr.CodeValidation, "Некорректный идентификатор"))
+		return 0, 0, false
+	}
+	return id, sid, true
 }

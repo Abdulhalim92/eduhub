@@ -5,6 +5,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -58,6 +59,46 @@ func Recover() gin.HandlerFunc {
 				})
 			}
 		}()
+		c.Next()
+	}
+}
+
+// RateLimit ограничивает число запросов с одного IP в минуту (фиксированное окно, в памяти экземпляра).
+// Для публичных эндпоинтов (/auth/*, /catalog/*): защита от перебора и спама (security.md, ADR 0023).
+// При нескольких экземплярах выносится в Redis — пока достаточно памяти процесса.
+func RateLimit(perMinute int) gin.HandlerFunc {
+	type bucket struct {
+		count int
+		reset time.Time
+	}
+	var mu sync.Mutex
+	buckets := map[string]*bucket{}
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		now := time.Now()
+		mu.Lock()
+		b := buckets[ip]
+		if b == nil || now.After(b.reset) {
+			b = &bucket{reset: now.Add(time.Minute)}
+			buckets[ip] = b
+		}
+		b.count++
+		over := b.count > perMinute
+		if len(buckets) > 10000 { // периодическая чистка истёкших окон
+			for k, v := range buckets {
+				if now.After(v.reset) {
+					delete(buckets, k)
+				}
+			}
+		}
+		mu.Unlock()
+		if over {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, &apierr.Error{
+				Code:    apierr.CodeLocked,
+				Message: "Слишком много запросов, повторите позже",
+			})
+			return
+		}
 		c.Next()
 	}
 }
