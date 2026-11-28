@@ -11,3 +11,13 @@ docs/design/
 *.jpg
 src/assets/
 .claude/skills/
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+frontend/package-lock.json
+backend/go.sum
+backend/bin/
+frontend/public/assets/
+skills/
