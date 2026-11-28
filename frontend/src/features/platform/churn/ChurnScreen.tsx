@@ -1,12 +1,14 @@
 /* «Риск оттока» (PLT-DSH-020): центры, не заходившие больше 10 дней, по убыванию риска. Прототип: src/js/views/platform/churn.js.
    Оценку и уровень риска считает сервер (riskScore, riskLevel); экран показывает факты из DTO как причины.
    Главное действие — «Связались» (у центра с контактом всегда есть менеджер — правило в api). Быстрый фильтр и уровень — в адресе. */
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type CenterDto, type ChurnFilter, type RiskLevel } from '@/api'
-import { useMarkContacted, useSetManager } from '@/api/mutations'
-import { useChurn, useDictionaries } from '@/api/queries'
+import { errorMessage } from '@/api/errors'
+import type { CenterDto, RiskLevel } from '@/features/centers/api/types'
+import type { ChurnFilter } from '@/features/platform/churn/api/types'
+import { isShowingPrevious } from '@/api/query-state'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
 import { FilterChip, FilterSelect } from '@/components/filters'
 import { Fact, ListEmpty, ListSkeleton } from '@/components/list-states'
 import { PageHeader } from '@/components/PageHeader'
@@ -27,6 +29,7 @@ import { PAGE_SIZE } from '@/lib/pager'
 import { paginate, useUrlFilters } from '@/lib/use-url-filters'
 import { MQ, useMediaQuery } from '@/lib/use-media-query'
 import { cn } from '@/lib/utils'
+import { useGetChurnQuery, useMarkCenterContactedMutation, useSetCenterManagerMutation } from './api/churnApi'
 
 const CHIPS = ['all', 'nomanager', 'contacted'] as const satisfies readonly ChurnFilter[]
 const LEVELS = ['high', 'medium', 'low'] as const satisfies readonly RiskLevel[]
@@ -41,34 +44,27 @@ export function ChurnScreen() {
   const f = useUrlFilters({ filter: 'all', risk: 'all' }, { filter: CHIPS, risk: ['all', ...LEVELS] })
   const filter = f.values.filter as ChurnFilter
   const risk = f.values.risk
-  const query = useChurn(filter)
+  const query = useGetChurnQuery(filter)
   const data = query.data
-  const managers = useDictionaries().data?.managers ?? []
+  const managers = useGetDictionariesQuery().data?.managers ?? []
   const actions = useCenterActions()
-  const setManager = useSetManager()
-  const contact = useMarkContacted()
-  const [contactingId, setContactingId] = useState<number | null>(null)
+  const [setCenterManager, managerState] = useSetCenterManagerMutation()
+  const [markCenterContacted, contact] = useMarkCenterContactedMutation()
+  const contactingId = contact.isLoading ? contact.originalArgs : undefined
+  const fail = (e: unknown) => toast.error(errorMessage(e, t('common.saveError')))
   const wide = useMediaQuery(MQ.xl)
 
   const filtered = (data?.items ?? []).filter(c => risk === 'all' || c.riskLevel === risk)
   const pageData = paginate(filtered, f.page, PAGE_SIZE)
 
   const changeManager = (c: CenterDto, manager: string | null) =>
-    setManager.mutate(
-      { centerId: c.id, manager },
-      {
-        onSuccess: () => toast.success(manager ? t('churn.managerSet', { manager, name: c.name }) : t('churn.managerCleared', { name: c.name })),
-        onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-      },
-    )
-  const markContacted = (c: CenterDto) => {
-    setContactingId(c.id)
-    contact.mutate(c.id, {
-      onSuccess: () => toast.success(t('churn.contactedToast', { name: c.name })),
-      onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-      onSettled: () => setContactingId(null),
-    })
-  }
+    setCenterManager({ centerId: c.id, manager })
+      .unwrap()
+      .then(() => toast.success(manager ? t('churn.managerSet', { manager, name: c.name }) : t('churn.managerCleared', { name: c.name })), fail)
+  const markContacted = (c: CenterDto) =>
+    markCenterContacted(c.id)
+      .unwrap()
+      .then(() => toast.success(t('churn.contactedToast', { name: c.name })), fail)
 
   const primary = (c: CenterDto) =>
     c.contacted ? (
@@ -83,7 +79,7 @@ export function ChurnScreen() {
   const menu = (c: CenterDto): RowAction[] =>
     compact([actions.item.enter(c), actions.item.modules(c), actions.item.finance(c), actions.item.planChange(c)])
   const managerSelect = (c: CenterDto) => (
-    <ManagerSelect c={c} managers={managers} disabled={setManager.isPending && setManager.variables?.centerId === c.id} onChange={m => changeManager(c, m)} />
+    <ManagerSelect c={c} managers={managers} disabled={managerState.isLoading && managerState.originalArgs?.centerId === c.id} onChange={m => changeManager(c, m)} />
   )
 
   let body: ReactNode
@@ -149,7 +145,7 @@ export function ChurnScreen() {
             </button>
           )}
         </div>
-        <div className={cn('flex-1 transition-opacity', query.isPlaceholderData && 'opacity-60')} aria-busy={query.isFetching}>
+        <div className={cn('flex-1 transition-opacity', isShowingPrevious(query) && 'opacity-60')} aria-busy={query.isFetching}>
           {body}
         </div>
         {data && pageData.total > 0 && (

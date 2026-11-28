@@ -1,7 +1,7 @@
 /* Контекст кабинета центра: какой центр открыт и вошёл ли SuperAdmin в режиме поддержки.
    Адрес: /center/<экран>?center=<id>[&support=1] (прототип: center-app.js). Провайдер — CabinetProvider в CenterLayout. */
 import { createContext, useContext } from 'react'
-import type { CabinetCenter } from '@/api'
+import type { CabinetCenter } from '@/features/cabinet/api/types'
 
 export type Cabinet = {
   /** Открытый центр; undefined — список ещё грузится или пуст. */

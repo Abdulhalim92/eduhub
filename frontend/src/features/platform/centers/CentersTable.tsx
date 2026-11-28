@@ -3,7 +3,8 @@
    «Действия» — главная кнопка и меню; их задаёт экран (только работающие действия). */
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { CenterDto, CentersList } from '@/api'
+import type { CenterDto } from '@/features/centers/api/types'
+import type { CentersPage } from './api/types'
 import { ProgressBar } from '@/components/ProgressBar'
 import { QueryError } from '@/components/QueryError'
 import { RowActions, type RowAction } from '@/components/RowActions'
@@ -229,7 +230,7 @@ function CenterCard(p: RowProps) {
 }
 
 type Props = {
-  data: CentersList | undefined
+  data: CentersPage | undefined
   error: unknown
   isPending: boolean
   isRefreshing: boolean

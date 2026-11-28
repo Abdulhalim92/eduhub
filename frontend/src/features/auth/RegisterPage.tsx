@@ -6,9 +6,10 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { errorMessage, type CenterApplicationPayload } from '@/api'
-import { useSubmitApplication } from '@/api/mutations'
-import { useDictionaries } from '@/api/queries'
+import { errorMessage } from '@/api/errors'
+import type { CenterApplicationPayload } from '@/features/auth/api/types'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
+import { useSubmitApplicationMutation } from './api/authApi'
 import { Field } from '@/components/Field'
 import { fieldAria } from '@/components/form-styles'
 import { Button } from '@/components/ui/button'
@@ -53,8 +54,8 @@ export function RegisterPage() {
 
 function ApplicationForm({ onDone }: { onDone: (d: { id: string; phone: string }) => void }) {
   const { t } = useTranslation()
-  const dict = useDictionaries().data
-  const mutation = useSubmitApplication()
+  const dict = useGetDictionariesQuery().data
+  const [submitApplication, { isLoading: submitting }] = useSubmitApplicationMutation()
   const [error, setError] = useState('')
   const { register, handleSubmit, setError: setFieldError, clearErrors, formState } = useForm<CenterApplicationPayload>({
     defaultValues: { centerName: '', city: '', direction: '', ownerName: '', phone: '', email: '', comment: '', consent: false },
@@ -65,7 +66,7 @@ function ApplicationForm({ onDone }: { onDone: (d: { id: string; phone: string }
   const onSubmit = handleSubmit(async v => {
     setError('')
     try {
-      const app = await mutation.mutateAsync(v)
+      const app = await submitApplication(v).unwrap()
       onDone({ id: app.id, phone: v.phone.trim() })
     } catch (e) {
       if (!applyServerErrors(e, setFieldError, [...ERROR_ORDER])) setError(errorMessage(e, t('common.saveError')))
@@ -133,8 +134,8 @@ function ApplicationForm({ onDone }: { onDone: (d: { id: string; phone: string }
           </span>
         )}
       </div>
-      <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
-        {mutation.isPending ? t('auth.register.submitting') : t('auth.register.submit')}
+      <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+        {submitting ? t('auth.register.submitting') : t('auth.register.submit')}
       </Button>
     </form>
   )

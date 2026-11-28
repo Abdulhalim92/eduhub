@@ -3,7 +3,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, apiConfig } from '@/api'
+import { api, apiConfig } from '@/api/mock/prototype-api'
 import { api as mock } from '@/api/mock/prototype-api'
 import { renderRoute } from '@/test/render-route'
 

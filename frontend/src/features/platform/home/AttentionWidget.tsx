@@ -2,8 +2,8 @@
 import { ChevronRight, Clock, LayoutGrid, TrendingUp, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { Attention } from '@/api'
-import { useAttention } from '@/api/queries'
+import type { Attention } from '@/features/platform/home/api/types'
+import { useGetAttentionQuery } from './api/homeApi'
 import { Panel } from '@/components/Panel'
 import { QueryError } from '@/components/QueryError'
 import { cn } from '@/lib/utils'
@@ -25,7 +25,7 @@ const QUEUES: Queue[] = [
 
 export function AttentionWidget() {
   const { t } = useTranslation()
-  const { data, error, isPending, refetch } = useAttention()
+  const { data, error, refetch } = useGetAttentionQuery()
   const total = data ? QUEUES.reduce((s, q) => s + q.count(data), 0) : null
 
   return (
@@ -65,7 +65,7 @@ export function AttentionWidget() {
                         {t(`home.attention.${q.id}.title`)}
                       </span>
                       <span className="block text-[11px] text-slate-500">
-                        {isPending ? (
+                        {!data ? (
                           <span className="mt-1 block h-3 w-40 animate-pulse rounded bg-slate-200" />
                         ) : (
                           t(`home.attention.${q.id}.text`, { count: q.count(data) })

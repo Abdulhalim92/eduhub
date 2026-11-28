@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from 'i18next'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api } from '@/api'
+import { api } from '@/api/mock/prototype-api'
 import { ApiError } from '@/api/mock/prototype-api'
 import { renderRoute } from '@/test/render-route'
 

@@ -4,9 +4,11 @@
 import { useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type LimitMetric, type NearLimitEntry, type NearLimitSort, type NearLimitStatus, type PlanOption } from '@/api'
-import { useSendOffer } from '@/api/mutations'
-import { useDictionaries, useNearLimit } from '@/api/queries'
+import { errorMessage } from '@/api/errors'
+import type { PlanOption } from '@/features/plans/api/types'
+import type { LimitMetric, NearLimitEntry, NearLimitSort, NearLimitStatus } from '@/features/platform/limits/api/types'
+import { isShowingPrevious } from '@/api/query-state'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
 import { FilterChip, FilterSelect, SearchInput } from '@/components/filters'
 import { ListEmpty, ListSkeleton } from '@/components/list-states'
 import { PageHeader } from '@/components/PageHeader'
@@ -24,6 +26,7 @@ import { paginate, useUrlFilters } from '@/lib/use-url-filters'
 import { MQ, useMediaQuery } from '@/lib/use-media-query'
 import { cn } from '@/lib/utils'
 import { LIMIT_TONE, limitLevel } from './limit-tone'
+import { useGetNearLimitQuery, useSendOfferMutation } from './api/limitsApi'
 import { LimitDetail, UsagePill } from './LimitDetail'
 
 const THRESHOLDS = ['70', '80', '90', '100'] as const
@@ -39,7 +42,7 @@ export function LimitsScreen() {
   )
   const v = f.values
   const thresholdPct = Number(v.th)
-  const query = useNearLimit({
+  const query = useGetNearLimitQuery({
     threshold: thresholdPct / 100,
     metric: v.metric as LimitMetric,
     q: v.q,
@@ -48,9 +51,10 @@ export function LimitsScreen() {
     sort: v.sort as NearLimitSort,
   })
   const data = query.data
-  const plans = useDictionaries().data?.plans ?? []
+  const plans = useGetDictionariesQuery().data?.plans ?? []
   const actions = useCenterActions()
-  const offer = useSendOffer()
+  const [sendOffer, { isLoading: sending }] = useSendOfferMutation()
+  const fail = (e: unknown) => toast.error(errorMessage(e, t('common.saveError')))
   const wide = useMediaQuery(MQ.xl)
 
   const items = data?.items ?? []
@@ -86,24 +90,16 @@ export function LimitsScreen() {
     })
 
   const sendBulk = () =>
-    offer.mutate(
-      { ids: [...checked] },
-      {
-        onSuccess: r => {
-          toast.success(r.skipped ? t('limits.bulkSkipped', { sent: r.sent, skipped: r.skipped }) : t('limits.bulkDone', { sent: r.sent }))
-          setChecked(new Set())
-        },
-        onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-      },
-    )
+    sendOffer({ ids: [...checked] })
+      .unwrap()
+      .then(r => {
+        toast.success(r.skipped ? t('limits.bulkSkipped', { sent: r.sent, skipped: r.skipped }) : t('limits.bulkDone', { sent: r.sent }))
+        setChecked(new Set())
+      }, fail)
   const sendOne = (e: NearLimitEntry, o: PlanOption) =>
-    offer.mutate(
-      { ids: [e.center.id], planId: o.id },
-      {
-        onSuccess: () => toast.success(t('limits.detail.offerDone', { name: e.center.name, plan: o.name })),
-        onError: err => toast.error(errorMessage(err, t('common.saveError'))),
-      },
-    )
+    sendOffer({ ids: [e.center.id], planId: o.id })
+      .unwrap()
+      .then(() => toast.success(t('limits.detail.offerDone', { name: e.center.name, plan: o.name })), fail)
   const issue = (e: NearLimitEntry, o: PlanOption) => {
     const w = e.center.worst
     setSheetOpen(false)
@@ -122,7 +118,7 @@ export function LimitsScreen() {
       onPick={planId => setPicked(p => ({ ...p, [e.center.id]: planId }))}
       onIssue={o => issue(e, o)}
       onOffer={o => sendOne(e, o)}
-      offerPending={offer.isPending}
+      offerPending={sending}
       onConfirmPayment={id => actions.confirmPayment(id)}
       onPlanChange={() => {
         setSheetOpen(false)
@@ -276,7 +272,7 @@ export function LimitsScreen() {
                 <Button variant="outline" size="sm" onClick={() => setChecked(new Set())}>
                   {t('limits.uncheck')}
                 </Button>
-                <Button size="sm" onClick={sendBulk} disabled={offer.isPending}>
+                <Button size="sm" onClick={sendBulk} disabled={sending}>
                   {t('limits.bulkOffer', { count: checked.size })}
                 </Button>
               </div>
@@ -284,7 +280,7 @@ export function LimitsScreen() {
               <span className="text-[11px] text-slate-400">{t('limits.bulkHint')}</span>
             )}
           </div>
-          <div className={cn('transition-opacity', query.isPlaceholderData && 'opacity-60')} aria-busy={query.isFetching}>
+          <div className={cn('transition-opacity', isShowingPrevious(query) && 'opacity-60')} aria-busy={query.isFetching}>
             {list}
           </div>
           {data && items.length > 0 && <Pager page={pageData.page} total={pageData.total} onPage={f.setPage} />}

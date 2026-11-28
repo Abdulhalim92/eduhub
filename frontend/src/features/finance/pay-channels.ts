@@ -1,6 +1,6 @@
 /* Значок канала поступления денег (прототип: invoice-panel.js PAY_CHANNEL_UI). Цвет — только подложка значка; название способа рядом текстом. */
 import { Banknote, CreditCard, Landmark, Smartphone, Tag, Wallet, type LucideIcon } from 'lucide-react'
-import type { PayChannel } from '@/api'
+import type { PayChannel } from '@/features/dictionaries/api/types'
 
 export const PAY_CHANNEL_UI: Record<PayChannel, { icon: LucideIcon; tone: string }> = {
   online: { icon: CreditCard, tone: 'bg-indigo-100 text-brand' },

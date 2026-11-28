@@ -3,8 +3,9 @@
    Рабочие действия: вход в кабинет (режим поддержки), данные для входа администратора, смена тарифа. Для заблокированного центра — только просмотр (BR-012). */
 import { LogIn } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { CenterDto, PlanSummary } from '@/api'
-import { useDictionaries } from '@/api/queries'
+import type { CenterDto } from '@/features/centers/api/types'
+import type { PlanSummary } from '@/features/dictionaries/api/types'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
 import { ProgressBar } from '@/components/ProgressBar'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -25,7 +26,7 @@ type Props = {
 
 export function ModulesSheet({ center: c, onClose, onEnter, onAdminAccess, onChangePlan }: Props) {
   const { t } = useTranslation()
-  const plans = useDictionaries().data?.plans
+  const plans = useGetDictionariesQuery().data?.plans
   const plan: PlanSummary | undefined = c ? plans?.find(p => p.name === c.plan) : undefined
   const active = c?.status !== 'blocked'
 

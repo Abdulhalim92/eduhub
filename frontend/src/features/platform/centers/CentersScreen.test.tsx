@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, type CenterDto, type CentersList } from '@/api'
+import { api } from '@/api/mock/prototype-api'
+import type { CenterDto } from '@/features/centers/api/types'
+import type { CentersList } from '@/features/platform/centers/api/types'
 import { renderRoute } from '@/test/render-route'
 
 // Intl ставит неразрывные пробелы в числах (2 400) — сравниваем с обычными
@@ -167,7 +169,7 @@ describe('реестр центров (PLT-CTR-010)', () => {
   })
 
   it('открытый счёт на смену тарифа виден в строке', async () => {
-    const real = await api.centers.list({ page: 1, pageSize: 10 })
+    const real: CentersList = await api.centers.list({ page: 1, pageSize: 10 })
     const withChange = (c: CenterDto, pc: Partial<NonNullable<CenterDto['pendingChange']>>): CenterDto => ({
       ...c,
       pendingChange: { invoiceId: 'INV-1', planId: 'pro', planName: 'Про', amount: 900, deferred: false, dueAt: null, overdue: false, ...pc },

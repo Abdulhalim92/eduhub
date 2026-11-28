@@ -2,12 +2,12 @@
    Прототип: src/js/views/platform/expiring.js. Окно, тариф и счёт — в адресе; список приходит целиком, страницы по 10 — на клиенте.
    Главное действие строки — «Выставить счёт», а если счёт уже есть — «Подтвердить оплату» (после оплаты центр уходит из списка). */
 import { Bell } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type CenterDto } from '@/api'
-import { useInvoiceRenewal, useRemindCenters } from '@/api/mutations'
-import { useExpiring } from '@/api/queries'
+import { errorMessage } from '@/api/errors'
+import type { CenterDto } from '@/features/centers/api/types'
+import { isShowingPrevious } from '@/api/query-state'
 import { FilterChip, FilterSelect } from '@/components/filters'
 import { Fact, ListEmpty, ListSkeleton } from '@/components/list-states'
 import { PageHeader } from '@/components/PageHeader'
@@ -26,6 +26,7 @@ import { PAGE_SIZE } from '@/lib/pager'
 import { paginate, useUrlFilters } from '@/lib/use-url-filters'
 import { MQ, useMediaQuery } from '@/lib/use-media-query'
 import { cn } from '@/lib/utils'
+import { useGetExpiringQuery, useIssueRenewalInvoiceMutation, useRemindCentersMutation } from './api/expiringApi'
 
 const WINDOWS = ['7', '14', '30'] as const
 const INVOICE = ['all', 'yes', 'no'] as const
@@ -34,12 +35,13 @@ export function ExpiringScreen() {
   const { t } = useTranslation()
   const f = useUrlFilters({ days: '14', plan: 'all', inv: 'all' }, { days: WINDOWS, inv: INVOICE })
   const { days, plan, inv } = f.values
-  const query = useExpiring(Number(days))
+  const query = useGetExpiringQuery(Number(days))
   const data = query.data
   const actions = useCenterActions()
-  const remind = useRemindCenters()
-  const issue = useInvoiceRenewal()
-  const [issuingId, setIssuingId] = useState<number | null>(null)
+  const [remindCenters, { isLoading: reminding }] = useRemindCentersMutation()
+  const [issueRenewalInvoice, issue] = useIssueRenewalInvoiceMutation()
+  const issuingId = issue.isLoading ? issue.originalArgs : undefined
+  const fail = (e: unknown) => toast.error(errorMessage(e, t('common.saveError')))
   const wide = useMediaQuery(MQ.xl)
 
   const plans = useMemo(() => [...new Set((data?.items ?? []).map(c => c.plan))], [data])
@@ -52,24 +54,18 @@ export function ExpiringScreen() {
   const remindAll = () => {
     const ids = (data?.items ?? []).filter(c => !c.reminded).map(c => c.id)
     if (!ids.length) return void toast(t('expiring.remindAllNone'))
-    remind.mutate(ids, {
-      onSuccess: r => toast.success(t('expiring.remindAllDone', { count: r.updated })),
-      onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-    })
+    remindCenters(ids)
+      .unwrap()
+      .then(count => toast.success(t('expiring.remindAllDone', { count })), fail)
   }
   const remindOne = (c: CenterDto) =>
-    remind.mutate([c.id], {
-      onSuccess: () => toast.success(t('expiring.remindDone', { name: c.name })),
-      onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-    })
-  const issueInvoice = (c: CenterDto) => {
-    setIssuingId(c.id)
-    issue.mutate(c.id, {
-      onSuccess: r => toast.success(t('expiring.issued', { id: r.invoice ?? '', name: c.name, amount: formatMoney(c.monthlyPrice) })),
-      onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-      onSettled: () => setIssuingId(null),
-    })
-  }
+    remindCenters([c.id])
+      .unwrap()
+      .then(() => toast.success(t('expiring.remindDone', { name: c.name })), fail)
+  const issueInvoice = (c: CenterDto) =>
+    issueRenewalInvoice(c.id)
+      .unwrap()
+      .then(r => toast.success(t('expiring.issued', { id: r.invoice ?? '', name: c.name, amount: formatMoney(c.monthlyPrice) })), fail)
 
   const primary = (c: CenterDto) =>
     c.invoice ? (
@@ -107,7 +103,7 @@ export function ExpiringScreen() {
         title={t('expiring.title')}
         subtitle={t('expiring.subtitle')}
         actions={
-          <Button size="lg" onClick={remindAll} disabled={!data || remind.isPending}>
+          <Button size="lg" onClick={remindAll} disabled={!data || reminding}>
             <Bell aria-hidden />
             {t('expiring.remindAll')}
           </Button>
@@ -165,7 +161,7 @@ export function ExpiringScreen() {
             </button>
           )}
         </div>
-        <div className={cn('flex-1 transition-opacity', query.isPlaceholderData && 'opacity-60')} aria-busy={query.isFetching}>
+        <div className={cn('flex-1 transition-opacity', isShowingPrevious(query) && 'opacity-60')} aria-busy={query.isFetching}>
           {body}
         </div>
         {data && pageData.total > 0 && (

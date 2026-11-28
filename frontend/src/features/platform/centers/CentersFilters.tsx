@@ -1,7 +1,9 @@
 /* Панель фильтров реестра: поиск, тариф, город, чипы со счётчиками из «Требует внимания», «Сбросить фильтры». */
 import { useTranslation } from 'react-i18next'
-import type { Attention, CenterFilter } from '@/api'
-import { useAttention, useDictionaries } from '@/api/queries'
+import type { CenterFilter } from '@/features/platform/centers/api/types'
+import type { Attention } from '@/features/platform/home/api/types'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
+import { useGetAttentionQuery } from '@/features/platform/home/api/homeApi'
 import { FilterChip, FilterSelect, SearchInput } from '@/components/filters'
 import { CENTER_FILTERS, type useCentersFilters } from './use-centers-filters'
 
@@ -15,8 +17,8 @@ const CHIP_COUNT: Record<Exclude<CenterFilter, 'all'>, (a: Attention) => number>
 export function CentersFilters({ state }: { state: ReturnType<typeof useCentersFilters> }) {
   const { t } = useTranslation()
   const { filters, setFilter, isFiltered, reset } = state
-  const dict = useDictionaries().data
-  const attention = useAttention().data
+  const dict = useGetDictionariesQuery().data
+  const attention = useGetAttentionQuery().data
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">

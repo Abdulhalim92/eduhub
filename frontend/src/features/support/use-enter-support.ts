@@ -3,22 +3,22 @@
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { errorMessage } from '@/api'
-import { useEnterSupport } from '@/api/mutations'
+import { errorMessage } from '@/api/errors'
+import { useEnterSupportMutation } from './api/supportApi'
 
 export const supportUrl = (centerId: number) => `/center/profile?center=${centerId}&support=1`
 
 export function useEnterSupportNav() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const mutation = useEnterSupport()
+  const [enterSupport, state] = useEnterSupportMutation()
   const enter = async (centerId: number) => {
     try {
-      await mutation.mutateAsync(centerId)
+      await enterSupport(centerId).unwrap()
       navigate(supportUrl(centerId))
     } catch (e) {
       toast.error(errorMessage(e, t('support.failed')))
     }
   }
-  return { enter, pendingId: mutation.isPending ? mutation.variables : undefined }
+  return { enter, pendingId: state.isLoading ? state.originalArgs : undefined }
 }

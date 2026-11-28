@@ -4,9 +4,9 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type CatalogDesc, type GeoPoint, type ModerationDecision, type ModerationRequest, type ModerationTab } from '@/api'
-import { useModerationDecide, useModerationRequeue } from '@/api/mutations'
-import { useModeration } from '@/api/queries'
+import { errorMessage } from '@/api/errors'
+import type { CatalogDesc, GeoPoint, ModerationDecision, ModerationRequest, ModerationTab } from '@/features/platform/moderation/api/types'
+import { isShowingPrevious } from '@/api/query-state'
 import { FilterChip } from '@/components/filters'
 import { ListEmpty, ListSkeleton } from '@/components/list-states'
 import { PageHeader } from '@/components/PageHeader'
@@ -19,6 +19,7 @@ import { PAGE_SIZE } from '@/lib/pager'
 import { paginate, useUrlFilters } from '@/lib/use-url-filters'
 import { MQ, useMediaQuery } from '@/lib/use-media-query'
 import { cn } from '@/lib/utils'
+import { useDecideModerationMutation, useGetModerationQuery, useRequeueModerationMutation } from './api/moderationApi'
 import { DESC_MIN, distanceM, GPS_MISMATCH_M } from './geo'
 import { ModerationDetail } from './ModerationDetail'
 import { MOD_STATUS_TONE } from './status'
@@ -30,10 +31,11 @@ export function ModerationScreen() {
   const { t } = useTranslation()
   const f = useUrlFilters({ tab: 'pending' }, { tab: TABS })
   const tab = f.values.tab as ModerationTab
-  const query = useModeration(tab)
+  const query = useGetModerationQuery(tab)
   const data = query.data
-  const decide = useModerationDecide()
-  const requeue = useModerationRequeue()
+  const [decideModeration, { isLoading: deciding }] = useDecideModerationMutation()
+  const [requeueModeration, { isLoading: requeueing }] = useRequeueModerationMutation()
+  const fail = (e: unknown) => toast.error(errorMessage(e, t('common.saveError')))
   const wide = useMediaQuery(MQ.xl)
 
   const items = data?.items ?? []
@@ -71,34 +73,29 @@ export function ModerationScreen() {
   }
   const onDecide = (decision: ModerationDecision, reason = '') => {
     if (!selected || !sel) return
-    decide.mutate(
-      { id: selected.id, decision, reason, desc: sel.desc, gps: sel.gps, gpsConfirmed: sel.gpsOk },
-      {
-        onSuccess: () => {
-          if (decision === 'published') toast.success(t('moderation.published', { branch: selected.branch, center: selected.centerName }))
-          else if (decision === 'returned') toast(t('moderation.returned'))
-          else toast(t('moderation.rejected'))
-          dropDraft(selected.id)
-          setSel(null)
-          setSheetOpen(false)
-        },
-        onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-      },
-    )
+    decideModeration({ id: selected.id, decision, reason, desc: sel.desc, gps: sel.gps, gpsConfirmed: sel.gpsOk })
+      .unwrap()
+      .then(() => {
+        if (decision === 'published') toast.success(t('moderation.published', { branch: selected.branch, center: selected.centerName }))
+        else if (decision === 'returned') toast(t('moderation.returned'))
+        else toast(t('moderation.rejected'))
+        dropDraft(selected.id)
+        setSel(null)
+        setSheetOpen(false)
+      }, fail)
   }
   const onRequeue = () => {
     if (!selected) return
     const id = selected.id
-    requeue.mutate(id, {
-      onSuccess: () => {
+    requeueModeration(id)
+      .unwrap()
+      .then(() => {
         toast(t('moderation.requeued'))
         dropDraft(id)
         setSel(id)
         setSheetOpen(false)
         f.set('tab', 'pending')
-      },
-      onError: e => toast.error(errorMessage(e, t('common.saveError'))),
-    })
+      }, fail)
   }
 
   const detail = sel && (
@@ -110,7 +107,7 @@ export function ModerationScreen() {
       onGpsOk={ok => edit(sel, d => ({ ...d, gpsOk: ok }))}
       onDecide={onDecide}
       onRequeue={onRequeue}
-      busy={decide.isPending || requeue.isPending}
+      busy={deciding || requeueing}
     />
   )
 
@@ -145,7 +142,7 @@ export function ModerationScreen() {
               </FilterChip>
             </div>
           </div>
-          <div className={cn('transition-opacity', query.isPlaceholderData && 'opacity-60')} aria-busy={query.isFetching}>
+          <div className={cn('transition-opacity', isShowingPrevious(query) && 'opacity-60')} aria-busy={query.isFetching}>
             {list}
           </div>
           {pageData.total > PAGE_SIZE && <Pager page={pageData.page} total={pageData.total} onPage={f.setPage} />}

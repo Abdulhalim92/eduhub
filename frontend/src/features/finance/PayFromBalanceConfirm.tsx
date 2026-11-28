@@ -2,8 +2,9 @@
    Закрывается после ответа сервера; при ошибке — тост и закрытие (данные перечитаются). */
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type InvoiceDto } from '@/api'
-import { usePayFromBalance } from '@/api/mutations'
+import { errorMessage } from '@/api/errors'
+import type { InvoiceDto } from '@/features/billing/api/types'
+import { usePayFromBalanceMutation } from '@/features/billing/api/billingApi'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -21,13 +22,13 @@ type Props = { invoice: InvoiceDto | null; onClose: () => void; onPaid?: (inv: I
 
 export function PayFromBalanceConfirm({ invoice, onClose, onPaid }: Props) {
   const { t } = useTranslation()
-  const pay = usePayFromBalance()
+  const [payFromBalance, { isLoading: paying }] = usePayFromBalanceMutation()
   const fb = invoice?.fromBalance
 
   const doPay = async () => {
     if (!invoice) return
     try {
-      const inv = await pay.mutateAsync(invoice.id)
+      const inv = await payFromBalance(invoice.id).unwrap()
       // за смену тарифа и продление — что изменилось у центра; за остальное — что счёт оплачен с баланса
       toast.success(inv.kind === 'plan_change' || inv.kind === 'renewal' ? paidMessage(t, inv) : t('finance.payConfirm.done', { id: inv.id }))
       onClose()
@@ -39,7 +40,7 @@ export function PayFromBalanceConfirm({ invoice, onClose, onPaid }: Props) {
   }
 
   return (
-    <AlertDialog open={!!invoice} onOpenChange={open => !open && !pay.isPending && onClose()}>
+    <AlertDialog open={!!invoice} onOpenChange={open => !open && !paying && onClose()}>
       <AlertDialogContent>
         {invoice && fb && (
           <>
@@ -57,10 +58,10 @@ export function PayFromBalanceConfirm({ invoice, onClose, onPaid }: Props) {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={pay.isPending}>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogCancel disabled={paying}>{t('common.cancel')}</AlertDialogCancel>
               {/* не AlertDialogAction: он закрывает диалог сразу, а нужно дождаться ответа сервера */}
-              <Button onClick={doPay} disabled={pay.isPending}>
-                {pay.isPending ? t('finance.payConfirm.paying') : t('finance.payConfirm.confirm', { amount: formatMoney(invoice.amount) })}
+              <Button onClick={doPay} disabled={paying}>
+                {paying ? t('finance.payConfirm.paying') : t('finance.payConfirm.confirm', { amount: formatMoney(invoice.amount) })}
               </Button>
             </AlertDialogFooter>
           </>

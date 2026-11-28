@@ -2,7 +2,7 @@
 // Не типизируется и не правится по частям: на проде весь файл заменяет настоящий бэкенд.
 // Типизированный контракт для экранов — src/api/contract.ts; экраны импортируют api только оттуда (src/api/index.ts).
 // Источник истины для бизнес-правил mock — прототип: при правке правила менять оба файла (прототип покрыт tests/suite*.js).
-// ДОПОЛНЕНО во frontend (в прототипе этого нет, решение владельца 26.11.2026): auth.requestReset / auth.confirmReset (SYS-ACC-030),
+// ДОПОЛНЕНО во frontend (в прототипе этого нет): вход по SMS-коду auth.otpRequest / otpVerify / selectMembership (SYS-ACC-030, как backend/ identity),
 // applications.submit (PLT-CTR-070), демо-доступ владельца «Центр Перспектива». Блоки помечены «frontend:».
 /* eslint-disable */
 /* Слой данных. Сейчас — mock-бэкенд в памяти; при подключении реального API заменяется только IIFE `api`. */
@@ -458,8 +458,8 @@ const api = (() => {
   const ownerLogin = (c, phone) => { const l = digits(phone); return l.length >= 9 && !loginTaken(l) ? l : 'center' + c.id; };
   // frontend: демо-доступ, чтобы вход можно было попробовать сразу — владелец «Центр Перспектива», пароль временный (попросит сменить)
   db.credentials['center:1'] = { login: '992901001001', passwordHash: pwFingerprint('Demo2026'), issuedAt: new Date().toISOString(), mustChange: true };
-  // frontend: коды восстановления пароля (SYS-ACC-030) и заявки центров на подключение (PLT-CTR-070)
-  db.resetCodes = {};
+  // frontend: коды входа по SMS (SYS-ACC-030) и заявки центров на подключение (PLT-CTR-070)
+  db.otpCodes = {};
   db.applications = [];
   db.applicationSeq = 1001;
 
@@ -490,19 +490,29 @@ const api = (() => {
   }
   const sessionDto = ({ rec, who }) => ({ login: rec.login, role: who.role, roleLabel: who.roleLabel, name: who.name, centerId: who.c.id, centerName: who.c.name, mustChange: rec.mustChange, cabinet: CABINET_ROLES.includes(who.role) });
 
-  /* ---------- frontend: восстановление пароля по SMS-коду (SYS-ACC-030) ----------
-     Код из 6 цифр живёт 10 минут, повторная отправка — через 60 с, после 5 неверных вводов код сгорает.
-     Ответ одинаковый для существующего и несуществующего логина (как при входе): по нему нельзя узнать, есть ли логин.
-     SMS-шлюз — мок (INT-SMS-010): код возвращается в ответе как demoCode, на проде его нет. */
-  const RESET_TTL = 10 * 60 * 1000, RESET_RESEND = 60 * 1000, RESET_ATTEMPTS = 5;
-  const phoneOf = key => {
-    const [kind, sid] = key.split(':'), id = Number(sid);
-    if (kind === 'center') { const c = db.centers.find(x => x.id === id); return c && c.phone; }
-    if (kind === 'staff') { const t = db.staff.find(x => x.id === id); return t && t.phone; }
-    const st = db.students.find(x => x.id === id); return st && studentPhone(st);
-  };
-  const weakPassword = np => np.length < 8 || !/[A-Za-zА-Яа-я]/.test(np) || !/\d/.test(np);
+  /* ---------- frontend: вход по телефону и SMS-коду (SYS-ACC-030, BR-035) — как backend/internal/modules/identity ----------
+     Код из 6 цифр живёт 5 минут, запросить новый можно раз в минуту; после 5 неверных вводов номер блокируется на 15 минут.
+     Неверный, просроченный и чужой код дают один ответ. Роль задаётся парой «человек + центр»: одно членство — сразу сессия,
+     несколько или ни одного — токен выбора и список. Демо-отличие от сервера (пока): владелец и администратор центра тоже получают членство.
+     SMS-шлюз — мок: код возвращается в ответе как demoCode (на сервере он пишется в лог). */
+  const OTP_TTL = 5 * 60 * 1000, OTP_RESEND = 60 * 1000, OTP_ATTEMPTS = 5, OTP_LOCK = 15 * 60 * 1000;
   const genCode = () => { const b = new Uint32Array(1); if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b); else b[0] = Math.floor(Math.random() * 4294967296); return String(b[0] % 1000000).padStart(6, '0'); };
+  const samePhone = (a, b) => { const x = digits(a), y = digits(b); return !!x && !!y && x.slice(-9) === y.slice(-9); };
+  // демо: владелец «Центр Перспектива» ещё и администратор «Дониш» — чтобы показать выбор центра и роли
+  const DEMO_EXTRA_MEMBERSHIPS = [{ phone: '+992 90 100 10 01', centerId: 4, role: 'admin' }];
+  const OTP_ROLE_LABELS = { owner: 'Владелец центра', admin: 'Администратор центра', teacher: 'Преподаватель', student: 'Ученик', parent: 'Родитель' };
+  function membershipsOf(phone) {
+    const out = [];
+    db.centers.filter(c => samePhone(c.phone, phone)).forEach(c => out.push({ tenantId: c.id, tenantName: c.name, role: 'owner', name: c.owner }));
+    DEMO_EXTRA_MEMBERSHIPS.filter(m => samePhone(m.phone, phone)).forEach(m => { const c = db.centers.find(x => x.id === m.centerId); out.push({ tenantId: c.id, tenantName: c.name, role: m.role, name: null }); });
+    db.students.filter(st => st.status === 'active' && samePhone(studentPhone(st), phone)).forEach(st => { const c = db.centers.find(x => x.id === st.centerId); out.push({ tenantId: c.id, tenantName: c.name, role: 'student', name: studentName(st), studentId: st.id }); });
+    return out;
+  }
+  function otpSession(phone, m, all) {
+    const name = m.name || (all.find(x => x.name) || {}).name || phone;
+    return { accountId: Number(digits(phone).slice(-9)), phone, name, tenantId: m.tenantId, tenantName: m.tenantName, role: m.role, roleLabel: OTP_ROLE_LABELS[m.role] || m.role,
+      studentId: m.studentId, cabinet: m.role === 'owner' || m.role === 'admin', token: 'mock-otp-' + digits(phone) + '-' + m.tenantId + '-' + m.role, refreshToken: 'mock-refresh' };
+  }
 
   /* ---------- frontend: заявка центра на подключение (PLT-CTR-070) ----------
      Центр оставляет заявку; SuperAdmin рассматривает её и подключает центр (PLT-CTR-020) — тогда выдаются данные для входа.
@@ -1116,32 +1126,38 @@ const api = (() => {
         log('auth.password_changed', centerEntity(a.who.c), { reason: a.who.name + ' (' + a.who.roleLabel + ') сменил пароль', actor: { name: a.who.name, role: a.who.roleLabel, ip: '—', device: 'Страница входа' } });
         return sessionDto(a);
       }),
-      // frontend: SYS-ACC-030
-      requestReset: ({ login: rawLogin } = {}) => call(() => {
-        const login = String(rawLogin || '').trim().toLowerCase();
-        if (!login) throw new ApiError('VALIDATION', 'Укажите логин', { login: 'Укажите логин' });
-        const prev = db.resetCodes[login], now = Date.now();
-        if (prev && now - prev.sentAt < RESET_RESEND) throw new ApiError('TOO_EARLY', 'Код уже отправлен. Повторно — через ' + Math.ceil((RESET_RESEND - (now - prev.sentAt)) / 1000) + ' с');
-        const code = genCode(), hit = credByLogin(login), who = hit && principal(hit[0]), phone = hit && who && who.active ? phoneOf(hit[0]) : null;
-        // запись есть и для чужого логина (без кода) — чтобы ответ и лимит повторной отправки не выдавали, существует ли логин
-        db.resetCodes[login] = { hash: phone ? pwFingerprint(code) : null, expires: now + RESET_TTL, attempts: 0, sentAt: now };
-        if (phone) log('auth.reset_requested', centerEntity(who.c), { reason: who.name + ' (' + who.roleLabel + ') запросил код восстановления пароля', actor: { name: who.name, role: who.roleLabel, ip: '—', device: 'Страница входа' } });
-        return { expiresIn: RESET_TTL / 1000, resendIn: RESET_RESEND / 1000, demoCode: code };
+      // frontend: SYS-ACC-030 — вход по SMS-коду
+      otpRequest: ({ phone: raw } = {}) => call(() => {
+        const phone = normPhone(raw);
+        if (!phone) throw new ApiError('VALIDATION', 'Укажите номер телефона', { phone: 'Номер в формате +992 и 9 цифр' });
+        const prev = db.otpCodes[phone], now = Date.now();
+        if (prev && prev.lockedUntil > now) throw new ApiError('LOCKED', 'Слишком много попыток. Повторите позже');
+        if (prev && now - prev.sentAt < OTP_RESEND) throw new ApiError('LOCKED', 'Код уже отправлен. Повторите через минуту');
+        const code = genCode();
+        db.otpCodes[phone] = { hash: pwFingerprint(code), expires: now + OTP_TTL, attempts: 0, sentAt: now, lockedUntil: 0 };
+        return { status: 'sent', demoCode: code };
       }),
-      confirmReset: ({ login: rawLogin, code, newPassword } = {}) => call(() => {
-        const login = String(rawLogin || '').trim().toLowerCase(), rec = db.resetCodes[login], e = {}, np = String(newPassword || '');
-        if (!/^\d{6}$/.test(String(code || '').trim())) e.code = 'Введите 6 цифр из SMS';
-        else if (!rec || !rec.hash || rec.expires < Date.now() || rec.hash !== pwFingerprint(String(code).trim())) {
-          e.code = 'Неверный или просроченный код';
-          if (rec) { rec.attempts++; if (rec.attempts >= RESET_ATTEMPTS) { rec.hash = null; e.code = 'Код больше не действует. Запросите новый'; } }
+      otpVerify: ({ phone: raw, code } = {}) => call(() => {
+        const phone = normPhone(raw), rec = phone && db.otpCodes[phone], now = Date.now();
+        if (!rec || rec.expires < now) throw new ApiError('UNAUTHORIZED', 'Неверный код');
+        if (rec.lockedUntil > now || rec.attempts >= OTP_ATTEMPTS) throw new ApiError('LOCKED', 'Слишком много попыток. Повторите позже');
+        if (rec.hash !== pwFingerprint(String(code || '').trim())) {
+          rec.attempts++;
+          if (rec.attempts >= OTP_ATTEMPTS) { rec.lockedUntil = now + OTP_LOCK; rec.expires = now + OTP_LOCK; }
+          throw new ApiError('UNAUTHORIZED', 'Неверный код');
         }
-        if (weakPassword(np)) e.newPassword = 'Не короче 8 символов, с буквой и цифрой';
-        if (Object.keys(e).length) throw new ApiError('VALIDATION', 'Проверьте код и пароль', e);
-        const hit = credByLogin(login), who = principal(hit[0]);
-        hit[1].passwordHash = pwFingerprint(np); hit[1].mustChange = false; hit[1].changedAt = new Date().toISOString();
-        delete db.resetCodes[login]; delete db.loginFails[login];   // новый пароль снимает и блокировку подбора
-        log('auth.password_reset', centerEntity(who.c), { reason: who.name + ' (' + who.roleLabel + ') восстановил пароль по SMS-коду', actor: { name: who.name, role: who.roleLabel, ip: '—', device: 'Страница входа' } });
-        return { ok: true, login };
+        delete db.otpCodes[phone];
+        const ms = membershipsOf(phone);
+        if (ms.length === 1) return { session: otpSession(phone, ms[0], ms) };
+        return { selectToken: 'mock-select-' + digits(phone), memberships: ms.map(m => ({ tenantId: m.tenantId, tenantName: m.tenantName, role: m.role })) };
+      }),
+      // токен выбора приходит в заголовке Authorization (как на сервере); mock-fetch передаёт его вторым аргументом
+      selectMembership: ({ tenantId, role } = {}, token = '') => call(() => {
+        const m = /^Bearer mock-select-(\d+)$/.exec(String(token));
+        if (!m) throw new ApiError('UNAUTHORIZED', 'Требуется токен выбора членства');
+        const phone = normPhone(m[1]), ms = membershipsOf(phone), hit = ms.find(x => x.tenantId === Number(tenantId) && x.role === role);
+        if (!hit) throw new ApiError('FORBIDDEN', 'Нет такого членства');
+        return otpSession(phone, hit, ms);
       })
     },
     // frontend: PLT-CTR-070

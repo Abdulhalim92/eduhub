@@ -1,7 +1,7 @@
 /* Фильтры реестра центров живут в адресе (?q=&plan=&city=&filter=&page=): ссылка с главной открывает реестр уже отфильтрованным,
    «Назад» возвращает прежнюю выдачу, адрес можно отправить коллеге. Значения по умолчанию в адрес не пишутся. */
 import { useSearchParams } from 'react-router'
-import type { CenterFilter } from '@/api'
+import type { CenterFilter } from '@/features/platform/centers/api/types'
 
 export const CENTER_FILTERS: CenterFilter[] = ['all', 'overdraft', 'expiring', 'churn', 'blocked']
 

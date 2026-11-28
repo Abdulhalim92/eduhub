@@ -3,8 +3,9 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type CenterDto } from '@/api'
-import { useSetOverdraft } from '@/api/mutations'
+import { errorMessage } from '@/api/errors'
+import type { CenterDto } from '@/features/centers/api/types'
+import { useSetOverdraftMutation } from './api/financeApi'
 import { Field } from '@/components/Field'
 import { fieldAria, inputClass } from '@/components/form-styles'
 import { Button } from '@/components/ui/button'
@@ -18,9 +19,9 @@ type Form = { limit: string; reason: string }
 
 export function OverdraftDialog({ center, onClose }: { center: CenterDto | null; onClose: () => void }) {
   const { t } = useTranslation()
-  const mutation = useSetOverdraft()
+  const [setOverdraft, { isLoading: saving }] = useSetOverdraftMutation()
   return (
-    <Dialog open={!!center} onOpenChange={open => !open && !mutation.isPending && onClose()}>
+    <Dialog open={!!center} onOpenChange={open => !open && !saving && onClose()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-lg">
         {center && (
           <>
@@ -28,7 +29,7 @@ export function OverdraftDialog({ center, onClose }: { center: CenterDto | null;
               <DialogTitle className="text-base font-extrabold text-heading">{t('overdraftLimit.title')}</DialogTitle>
               <DialogDescription>{center.name}</DialogDescription>
             </DialogHeader>
-            <OverdraftForm center={center} mutation={mutation} onDone={onClose} />
+            <OverdraftForm center={center} setOverdraft={setOverdraft} saving={saving} onDone={onClose} />
           </>
         )}
       </DialogContent>
@@ -45,7 +46,14 @@ function Stat({ label, value, className }: { label: string; value: string; class
   )
 }
 
-function OverdraftForm({ center: c, mutation, onDone }: { center: CenterDto; mutation: ReturnType<typeof useSetOverdraft>; onDone: () => void }) {
+type OverdraftFormProps = {
+  center: CenterDto
+  setOverdraft: ReturnType<typeof useSetOverdraftMutation>[0]
+  saving: boolean
+  onDone: () => void
+}
+
+function OverdraftForm({ center: c, setOverdraft, saving, onDone }: OverdraftFormProps) {
   const { t } = useTranslation()
   const { register, handleSubmit, control, setValue, setError, clearErrors, formState } = useForm<Form>({
     defaultValues: { limit: String(c.overdraftLimit), reason: '' },
@@ -58,7 +66,7 @@ function OverdraftForm({ center: c, mutation, onDone }: { center: CenterDto; mut
 
   const onSubmit = handleSubmit(async v => {
     try {
-      const res = await mutation.mutateAsync({ centerId: c.id, limit: v.limit === '' ? null : Number(v.limit), reason: v.reason })
+      const res = await setOverdraft({ centerId: c.id, limit: v.limit === '' ? null : Number(v.limit), reason: v.reason }).unwrap()
       toast.success(t('overdraftLimit.done', { name: res.name, limit: formatMoney(res.overdraftLimit) }))
       onDone()
     } catch (e) {
@@ -138,11 +146,11 @@ function OverdraftForm({ center: c, mutation, onDone }: { center: CenterDto; mut
       </Field>
 
       <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={saving}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" size="lg" disabled={mutation.isPending}>
-          {mutation.isPending ? t('overdraftLimit.submitting') : t('overdraftLimit.submit')}
+        <Button type="submit" size="lg" disabled={saving}>
+          {saving ? t('overdraftLimit.submitting') : t('overdraftLimit.submit')}
         </Button>
       </DialogFooter>
     </form>

@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
-import { apiConfig } from '@/api'
+import { apiConfig } from '@/api/mock/prototype-api'
 import '@/i18n'
 
 apiConfig.latencyMs = 0 // mock отвечает сразу

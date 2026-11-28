@@ -2,7 +2,7 @@
    Адрес всегда приводится к выбранному центру — перезагрузка и ссылка ведут в тот же центр. */
 import { useEffect, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
-import { useCabinetCenters } from '@/api/queries'
+import { useGetCabinetCentersQuery } from './api/cabinetApi'
 import { CabinetContext, type Cabinet } from './cabinet-context'
 
 const STORE_KEY = 'eduhub.centerId' // тот же ключ, что в прототипе
@@ -24,8 +24,8 @@ const readSaved = () => {
 
 export function CabinetProvider({ children }: { children: ReactNode }) {
   const [params, setParams] = useSearchParams()
-  const { data, error, isPending, refetch } = useCabinetCenters()
-  const centers = data?.items ?? []
+  const { data, error, isLoading: isPending, refetch } = useGetCabinetCentersQuery()
+  const centers = data ?? []
   const support = params.get('support') === '1'
   const ids = centers.map(c => c.id)
   const centerId = [Number(params.get('center')), readSaved()].find(id => ids.includes(id)) ?? ids[0]

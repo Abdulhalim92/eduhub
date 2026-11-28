@@ -1,7 +1,9 @@
 /* Карточка центра у лимита (PLT-TRF-040): три лимита, тарифы выше с расчётом цены, счёт на переход или предложение владельцу.
    Тариф не меняется кнопкой: «Выставить счёт…» открывает диалог смены тарифа (PLT-TRF-020) с подставленными тарифом и причиной. */
 import { Trans, useTranslation } from 'react-i18next'
-import type { NearLimitEntry, PlanOption, UsageItem } from '@/api'
+import type { UsageItem } from '@/features/centers/api/types'
+import type { PlanOption } from '@/features/plans/api/types'
+import type { NearLimitEntry } from '@/features/platform/limits/api/types'
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { formatMoney } from '@/lib/format'

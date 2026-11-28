@@ -19,5 +19,7 @@ export default defineConfig({
     command: `npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
+    // e2e — на mock прототипа, даже если в .env.local включён сервер
+    env: { VITE_API_MODE: 'mock' },
   },
 })

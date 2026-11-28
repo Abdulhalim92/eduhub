@@ -2,8 +2,9 @@
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type InvoiceDto } from '@/api'
-import { useCancelInvoice } from '@/api/mutations'
+import { errorMessage } from '@/api/errors'
+import type { InvoiceDto } from '@/features/billing/api/types'
+import { useCancelInvoiceMutation } from './api/billingApi'
 import { Field } from '@/components/Field'
 import { fieldAria, inputClass } from '@/components/form-styles'
 import { Button } from '@/components/ui/button'
@@ -15,9 +16,9 @@ type Props = { invoice: InvoiceDto | null; onClose: () => void; onCancelled?: (i
 
 export function CancelInvoiceDialog({ invoice, onClose, onCancelled }: Props) {
   const { t } = useTranslation()
-  const mutation = useCancelInvoice()
+  const [cancelInvoice, { isLoading: cancelling }] = useCancelInvoiceMutation()
   return (
-    <Dialog open={!!invoice} onOpenChange={open => !open && !mutation.isPending && onClose()}>
+    <Dialog open={!!invoice} onOpenChange={open => !open && !cancelling && onClose()}>
       <DialogContent className="[--dialog-p:--spacing(6)] sm:max-w-lg">
         {invoice && (
           <>
@@ -25,7 +26,7 @@ export function CancelInvoiceDialog({ invoice, onClose, onCancelled }: Props) {
               <DialogTitle className="text-base font-extrabold text-heading">{t('billing.cancel.title', { id: invoice.id })}</DialogTitle>
               <DialogDescription>{invoice.centerName}</DialogDescription>
             </DialogHeader>
-            <CancelForm invoice={invoice} mutation={mutation} onClose={onClose} onCancelled={onCancelled} />
+            <CancelForm invoice={invoice} cancelInvoice={cancelInvoice} cancelling={cancelling} onClose={onClose} onCancelled={onCancelled} />
           </>
         )}
       </DialogContent>
@@ -33,16 +34,22 @@ export function CancelInvoiceDialog({ invoice, onClose, onCancelled }: Props) {
   )
 }
 
-type FormProps = { invoice: InvoiceDto; mutation: ReturnType<typeof useCancelInvoice>; onClose: () => void; onCancelled?: (inv: InvoiceDto) => void }
+type FormProps = {
+  invoice: InvoiceDto
+  cancelInvoice: ReturnType<typeof useCancelInvoiceMutation>[0]
+  cancelling: boolean
+  onClose: () => void
+  onCancelled?: (inv: InvoiceDto) => void
+}
 
-function CancelForm({ invoice: i, mutation, onClose, onCancelled }: FormProps) {
+function CancelForm({ invoice: i, cancelInvoice, cancelling, onClose, onCancelled }: FormProps) {
   const { t } = useTranslation()
   const { register, handleSubmit, setError, clearErrors, formState } = useForm<{ reason: string }>({ defaultValues: { reason: '' } })
   const error = formState.errors.reason?.message
 
   const onSubmit = handleSubmit(async v => {
     try {
-      const inv = await mutation.mutateAsync({ invoiceId: i.id, reason: v.reason })
+      const inv = await cancelInvoice({ invoiceId: i.id, reason: v.reason }).unwrap()
       toast.success(t('billing.cancel.done', { id: inv.id }))
       onClose()
       onCancelled?.(inv)
@@ -72,11 +79,11 @@ function CancelForm({ invoice: i, mutation, onClose, onCancelled }: FormProps) {
         />
       </Field>
       <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={cancelling}>
           {t('billing.cancel.keep')}
         </Button>
-        <Button type="submit" size="lg" variant="destructive" disabled={mutation.isPending}>
-          {mutation.isPending ? t('billing.cancel.submitting') : t('billing.cancel.submit')}
+        <Button type="submit" size="lg" variant="destructive" disabled={cancelling}>
+          {cancelling ? t('billing.cancel.submitting') : t('billing.cancel.submit')}
         </Button>
       </DialogFooter>
     </form>
