@@ -1,0 +1,148 @@
+/* Дизайн-токены «Линии». Единственное место, где задаются цвета: в компонентах только классы Tailwind (bg-brand, text-emerald-800, bg-primary …).
+   Источник — прототип: src/js/tailwind-config.js и src/css/app.css (палитра по референсу docs/design/references/, см. docs/design/ui-principles.md).
+
+   Два слоя:
+   1. Палитра (@theme) — цвета прототипа. Шкалы slate / emerald / indigo / violet переопределены частично, как в прототипе: остальные оттенки — стандартные Tailwind.
+   2. Семантические роли shadcn/ui (:root → @theme inline) — ссылаются на палитру, поэтому компоненты shadcn сразу в цветах «Линии».
+   Тёмной темы нет (требований нет): блок .dark появится вместе с ней. */
+
+/* ---------- 1. Палитра ---------- */
+@theme {
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* фон страницы */
+  --color-canvas: #E1EAF3;
+
+  /* основной цвет: кнопки, ссылки, активные элементы */
+  --color-brand: #3C5C73;
+  --color-brand-dark: #2D4559;
+  --color-brand-light: #DCE8EF;
+  --color-brand-subtle: #E8F0F5;
+
+  /* холодная сине-серая шкала нейтралей: рамки и подложки */
+  --color-slate-50: #F3F6FA;
+  --color-slate-100: #E6EDF3;
+  --color-slate-200: #D3DEE7;
+  --color-slate-300: #B5C3D0;
+
+  /* статусы «успех» и переключатели — бирюзовые */
+  --color-emerald-50: #EAF5F3;
+  --color-emerald-100: #D3ECE8;
+  --color-emerald-200: #B3DCD6;
+  --color-emerald-300: #86C4C3;
+  --color-emerald-400: #5BA3A8;
+  --color-emerald-500: #3A7D86;
+  --color-emerald-600: #2E7B81;
+  --color-emerald-700: #25666C;
+  --color-emerald-800: #1B464C;
+  --color-emerald-900: #143539;
+
+  /* информационные метки — стальной синий */
+  --color-indigo-50: #EAF1F5;
+  --color-indigo-100: #DCE8EF;
+  --color-indigo-200: #C3D5E0;
+  --color-indigo-300: #9DB8C9;
+  --color-indigo-400: #6F92A9;
+  --color-indigo-500: #4F738B;
+  --color-indigo-600: #3C5C73;
+  --color-indigo-700: #2D4559;
+  --color-indigo-800: #243747;
+  --color-indigo-900: #1B2B38;
+
+  --color-violet-100: #DCE8EF;
+  --color-violet-700: #2D4559;
+
+  /* заголовки экранов */
+  --color-heading: #0F1B2D;
+
+  /* таблицы: тонированная шапка (фон — slate-100) и вертикальные разделители столбцов */
+  --color-table-head-text: #5B6F82;
+  --color-table-divider: #C5D2DD;
+  --color-table-divider-head: #AFC0CF;
+
+  /* сайдбар: приглушённые подписи групп (фон, текст, рамка — роли --sidebar-* ниже) */
+  --color-sidebar-muted: #8FA2B8;
+
+  /* появление экранов и диалогов */
+  --animate-fade-in: fade-in 0.18s ease-out forwards;
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ---------- 2. Семантические роли (shadcn/ui) ---------- */
+:root {
+  --background: var(--color-canvas);
+  --foreground: var(--color-slate-800);
+  --card: var(--color-white);
+  --card-foreground: var(--color-slate-800);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-slate-800);
+  --primary: var(--color-brand);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-slate-100);
+  --secondary-foreground: var(--color-slate-800);
+  --muted: var(--color-slate-100);
+  --muted-foreground: var(--color-slate-500);
+  --accent: var(--color-brand-subtle);
+  --accent-foreground: var(--color-brand-dark);
+  --destructive: var(--color-red-600);
+  --border: var(--color-slate-200);
+  --input: var(--color-slate-200);
+  --ring: var(--color-brand);
+
+  /* графики: брендовый, бирюзовый, янтарный, стальной, нейтральный */
+  --chart-1: var(--color-brand);
+  --chart-2: var(--color-emerald-500);
+  --chart-3: var(--color-amber-500);
+  --chart-4: var(--color-indigo-300);
+  --chart-5: var(--color-slate-400);
+
+  /* тёмный сайдбар по референсу «Прототип.jpeg» (в прототипе — переопределения aside в app.css) */
+  --sidebar: #2D384A;
+  --sidebar-foreground: #C9D4E0;
+  --sidebar-primary: #3B556E;
+  --sidebar-primary-foreground: var(--color-white);
+  --sidebar-accent: rgb(255 255 255 / 0.14);
+  --sidebar-accent-foreground: var(--color-white);
+  --sidebar-border: #243044;
+  --sidebar-ring: var(--color-brand-light);
+
+  /* компоненты shadcn берут радиус отсюда; утилиты rounded-* остаются стандартными Tailwind, как в прототипе */
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
