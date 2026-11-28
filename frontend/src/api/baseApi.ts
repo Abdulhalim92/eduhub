@@ -20,8 +20,9 @@ const baseUrl = () => new URL(import.meta.env.VITE_API_URL ?? '/api', window.loc
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: '/', // настоящий адрес подставляется в baseQuery: window ещё может быть недоступен при импорте модуля
   prepareHeaders: headers => {
+    // свой заголовок у запроса (токен выбора членства при входе по SMS-коду) не перезаписываем
     const token = getToken()
-    if (token) headers.set('Authorization', `Bearer ${token}`)
+    if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
     return headers
   },
   // mock-режим: запрос не уходит в сеть, его обслуживает mock прототипа (импорт — только когда нужен)

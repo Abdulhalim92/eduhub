@@ -3,7 +3,7 @@
    Без service worker: демо работает и на телефоне по http://<ip>. Маршрута нет — 404, как у сервера (экран покажет «не подключено»). */
 import { api as mock, ApiError as MockApiError } from '@/api/mock/prototype-api'
 
-type Ctx = { params: Record<string, string>; query: URLSearchParams; body: Record<string, unknown> }
+type Ctx = { params: Record<string, string>; query: URLSearchParams; body: Record<string, unknown>; authorization: string }
 type Handler = (ctx: Ctx) => unknown
 // mock без типов (@ts-nocheck), вызовы проверяет контракт endpoints
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,8 +19,10 @@ const routes: [method: string, path: string, handler: Handler][] = [
   // вход и заявка центра
   ['POST', '/auth/login', ({ body }) => m.auth.login(body)],
   ['POST', '/auth/password', ({ body }) => m.auth.changePassword(body)],
-  ['POST', '/auth/reset', ({ body }) => m.auth.requestReset(body)],
-  ['POST', '/auth/reset/confirm', ({ body }) => m.auth.confirmReset(body)],
+  // вход по SMS-коду (SYS-ACC-030): выбор членства — с токеном выбора в Authorization
+  ['POST', '/auth/otp/request', ({ body }) => m.auth.otpRequest(body)],
+  ['POST', '/auth/otp/verify', ({ body }) => m.auth.otpVerify(body)],
+  ['POST', '/auth/membership', ({ body, authorization }) => m.auth.selectMembership(body, authorization)],
   ['POST', '/applications', ({ body }) => m.applications.submit(body)],
   // справочники и сводка
   ['GET', '/dictionaries', () => m.dictionaries.get()],
@@ -92,7 +94,7 @@ export async function mockFetch(request: Request): Promise<Response> {
     const params = Object.fromEntries(r.names.map((n, i) => [n, decodeURIComponent(match[i + 1])]))
     const text = request.method === 'GET' ? '' : await request.text()
     try {
-      return json(await r.handler({ params, query: url.searchParams, body: text ? JSON.parse(text) : {} }))
+      return json(await r.handler({ params, query: url.searchParams, body: text ? JSON.parse(text) : {}, authorization: request.headers.get('Authorization') ?? '' }))
     } catch (e) {
       if (e instanceof MockApiError) {
         const err = e as MockApiError & { code: string; fields: Record<string, string> }

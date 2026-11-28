@@ -12,7 +12,6 @@ import { CabinetIndexRedirect, CenterLayout } from '@/layouts/center/CenterLayou
 import { PlatformLayout } from '@/layouts/platform/PlatformLayout'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
-import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { NotFound } from './NotFound'
 import { RequireSession } from './RequireSession'
 import type { RouteHandle, ScreenKey } from './route-handle'
@@ -31,9 +30,8 @@ const groups = { title: 'screens.center.groups', to: '/center/groups' } as const
 export const routes: RouteObject[] = [
   // до шага авторизации стартовый экран — кабинет платформы; затем — по роли пользователя
   { path: '/', element: <Navigate to="/platform" replace /> },
-  // страницы без кабинета: вход (SYS-ACC-010), восстановление пароля (SYS-ACC-030), заявка центра (PLT-CTR-070)
+  // страницы без кабинета: вход по SMS-коду (SYS-ACC-030) и по паролю (SYS-ACC-010), заявка центра (PLT-CTR-070)
   { path: '/login', element: <LoginPage /> },
-  { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/register', element: <RegisterPage /> },
   {
     path: '/platform',

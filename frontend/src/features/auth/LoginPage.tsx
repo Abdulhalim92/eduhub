@@ -1,11 +1,13 @@
-/* Вход по логину и паролю (SYS-ACC-010). Прототип: login.html + src/js/login.js.
-   Временный пароль → обязательная смена; владелец и администратор центра попадают в кабинет своего центра,
-   остальные роли — пояснение про мобильное приложение. Проверки (одинаковое сообщение, блокировка после 5 попыток) — на сервере. */
+/* Страница входа: по телефону и SMS-коду (SYS-ACC-030, основной способ) или по логину и паролю (SYS-ACC-010, запасной).
+   Прототип: login.html + src/js/login.js. Временный пароль → обязательная смена; SuperAdmin попадает в кабинет платформы,
+   владелец и администратор центра — в кабинет своего центра, остальные роли — пояснение про мобильное приложение.
+   Проверки (одинаковое сообщение, блокировка после 5 попыток, срок и лимиты кода) — на сервере. */
 import { CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
+import { API_MODE } from '@/api/baseApi'
 import { errorMessage } from '@/api/errors'
 import { Field } from '@/components/Field'
 import { fieldAria } from '@/components/form-styles'
@@ -13,13 +15,17 @@ import { PasswordInput } from '@/components/PasswordInput'
 import { Button } from '@/components/ui/button'
 import { applyServerErrors } from '@/lib/server-errors'
 import { clearSession, saveSession } from '@/lib/session'
+import { cn } from '@/lib/utils'
 import { useChangePasswordMutation, useLoginMutation } from './api/authApi'
 import type { Session, SignedIn } from './api/types'
 import { authInput, DEMO_LOGIN } from './auth-styles'
 import { AuthLayout } from './AuthLayout'
 import { FormAlert } from './FormAlert'
+import { SmsLoginForm } from './SmsLoginForm'
+import { useRoleLabel } from './use-role-label'
 
-type LoginState = { login?: string; resetDone?: boolean } | null
+type LoginState = { login?: string } | null
+type Method = 'sms' | 'password'
 
 /** Возврат после входа — только на свой путь (не на чужой сайт по ссылке ?next=https://…). */
 const safeNext = (next: string | null) => (next && next.startsWith('/') && !next.startsWith('//') ? next : null)
@@ -32,6 +38,9 @@ export function LoginPage() {
   const [step, setStep] = useState<'login' | 'change' | 'done'>('login')
   const [creds, setCreds] = useState({ login: '', password: '' })
   const [user, setUser] = useState<Session | null>(null)
+  // пришли со страницы заявки с логином — сразу вход по паролю
+  const [method, setMethod] = useState<Method>(state?.login ? 'password' : 'sms')
+  const roleLabel = useRoleLabel()
 
   const enter = ({ session: u, token }: SignedIn) => {
     saveSession(u, token)
@@ -56,7 +65,7 @@ export function LoginPage() {
       <AuthLayout title={t('auth.done.title', { name: user.name })}>
         <div className="flex flex-col items-center gap-3 text-center">
           <CheckCircle2 className="size-12 text-emerald-600" aria-hidden />
-          <p className="text-xs text-slate-500">{t('auth.done.text', { role: user.roleLabel })}</p>
+          <p className="text-xs text-slate-500">{t('auth.done.text', { role: roleLabel(user.role, user.roleLabel) })}</p>
           <Button
             variant="outline"
             size="lg"
@@ -86,26 +95,50 @@ export function LoginPage() {
         </>
       }
     >
-      <LoginForm
-        initialLogin={state?.login ?? ''}
-        resetDone={!!state?.resetDone}
-        onSuccess={(r, c) => {
-          setCreds(c)
-          if (r.session.mustChange) setStep('change')
-          else enter(r)
-        }}
-      />
+      <div role="tablist" aria-label={t('auth.method.label')} className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+        {(['sms', 'password'] as const).map(m => (
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            id={`login-tab-${m}`}
+            aria-selected={method === m}
+            aria-controls={`login-panel-${m}`}
+            onClick={() => setMethod(m)}
+            className={cn(
+              'rounded-lg px-2 py-2 text-xs font-semibold transition',
+              method === m ? 'bg-white text-heading shadow-xs' : 'text-slate-500 hover:text-slate-700',
+            )}
+          >
+            {t(`auth.method.${m}`)}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`login-panel-${method}`} aria-labelledby={`login-tab-${method}`}>
+        {method === 'sms' ? (
+          <SmsLoginForm onSignedIn={enter} />
+        ) : (
+          <LoginForm
+            initialLogin={state?.login ?? ''}
+            onSuccess={(r, c) => {
+              setCreds(c)
+              if (r.session.mustChange) setStep('change')
+              else enter(r)
+            }}
+          />
+        )}
+      </div>
     </AuthLayout>
   )
 }
 
-type LoginFormProps = { initialLogin: string; resetDone: boolean; onSuccess: (r: SignedIn, creds: { login: string; password: string }) => void }
+type LoginFormProps = { initialLogin: string; onSuccess: (r: SignedIn, creds: { login: string; password: string }) => void }
 
-function LoginForm({ initialLogin, resetDone, onSuccess }: LoginFormProps) {
+function LoginForm({ initialLogin, onSuccess }: LoginFormProps) {
   const { t } = useTranslation()
   const [signIn, { isLoading: loggingIn }] = useLoginMutation()
   const [error, setError] = useState('')
-  const { register, handleSubmit, setValue, control } = useForm({ defaultValues: { login: initialLogin, password: '' } })
+  const { register, handleSubmit, setValue } = useForm({ defaultValues: { login: initialLogin, password: '' } })
 
   const onSubmit = handleSubmit(async v => {
     setError('')
@@ -117,11 +150,9 @@ function LoginForm({ initialLogin, resetDone, onSuccess }: LoginFormProps) {
       setValue('password', '')
     }
   })
-  const login = useWatch({ control, name: 'login' })
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-      {resetDone && !error && <FormAlert tone="success">{t('auth.login.resetDone')}</FormAlert>}
       {error && <FormAlert>{error}</FormAlert>}
       <Field label={t('auth.login.login')} htmlFor="login-login">
         <input id="login-login" autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus className={authInput()} {...register('login')} />
@@ -129,16 +160,12 @@ function LoginForm({ initialLogin, resetDone, onSuccess }: LoginFormProps) {
       <Field label={t('auth.login.password')} htmlFor="login-password">
         <PasswordInput id="login-password" autoComplete="current-password" className={authInput()} {...register('password')} />
       </Field>
-      <div className="-mt-1 text-right">
-        <Link to={`/reset-password${login ? `?login=${encodeURIComponent(login.trim())}` : ''}`} className="text-xs font-semibold text-brand hover:underline">
-          {t('auth.login.forgot')}
-        </Link>
-      </div>
       <Button type="submit" size="lg" className="w-full" disabled={loggingIn}>
         {loggingIn ? t('auth.login.submitting') : t('auth.login.submit')}
       </Button>
       <p className="text-[11px] text-slate-500">{t('auth.login.hint')}</p>
-      {/* демо: SMS и выдачи логинов нет — даём готовый доступ, чтобы вход можно было попробовать */}
+      {/* демо (mock): выдачи логинов нет — даём готовый доступ; с сервером этого блока нет */}
+      {API_MODE === 'mock' && (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-[11px] text-slate-600">
         <div className="flex items-center justify-between gap-3">
           <strong className="text-slate-700">{t('auth.login.demoTitle')}</strong>
@@ -155,6 +182,7 @@ function LoginForm({ initialLogin, resetDone, onSuccess }: LoginFormProps) {
         </div>
         <p className="mt-1">{t('auth.login.demoText', DEMO_LOGIN)}</p>
       </div>
+      )}
     </form>
   )
 }

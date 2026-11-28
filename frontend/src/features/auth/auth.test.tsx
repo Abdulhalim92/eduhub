@@ -1,4 +1,4 @@
-/* Вход (SYS-ACC-010), восстановление пароля по SMS-коду (SYS-ACC-030), заявка центра (PLT-CTR-070).
+/* Вход по SMS-коду (SYS-ACC-030) и по логину и паролю (SYS-ACC-010), заявка центра (PLT-CTR-070).
    mock общий для файла: у каждого теста свой аккаунт — данные для входа выдаются через mock, как это делает платформа или администратор центра. */
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -18,6 +18,12 @@ async function logIn(user: User, c: Creds) {
   await user.type(screen.getByLabelText('Пароль'), c.password)
   await user.click(screen.getByRole('button', { name: 'Войти' }))
 }
+/** Страница входа на вкладке «По логину и паролю» (по умолчанию открыт вход по SMS-коду). */
+async function passwordLogin(user: User) {
+  const r = renderRoute('/login')
+  await user.click(screen.getByRole('tab', { name: 'По логину и паролю' }))
+  return r
+}
 async function changePassword(user: User, next: string, repeat = next) {
   await screen.findByRole('heading', { name: 'Смените временный пароль' })
   await user.type(screen.getByLabelText('Новый пароль'), next)
@@ -29,7 +35,7 @@ describe('вход (SYS-ACC-010)', () => {
   it('неверный пароль и несуществующий логин — одно сообщение; пароль стирается (критерий 2)', async () => {
     const user = userEvent.setup()
     const c = await ownerCreds(2)
-    renderRoute('/login')
+    await passwordLogin(user)
     await logIn(user, { login: c.login, password: 'wrong-pass' })
     expect(await screen.findByRole('alert')).toHaveTextContent('Неверный логин или пароль')
     expect(screen.getByLabelText('Пароль')).toHaveValue('')
@@ -40,7 +46,7 @@ describe('вход (SYS-ACC-010)', () => {
   it('временный пароль: смена с проверками, затем кабинет своего центра (критерии 1, 5)', async () => {
     const user = userEvent.setup()
     const c = await ownerCreds(2)
-    const { router } = renderRoute('/login')
+    const { router } = await passwordLogin(user)
     await logIn(user, c)
     await changePassword(user, 'Secret2026', 'Secret2027')
     expect(await screen.findByText('Пароли не совпадают')).toBeInTheDocument()
@@ -64,7 +70,7 @@ describe('вход (SYS-ACC-010)', () => {
 
   it('демо-доступ: «Подставить» заполняет поля, вход просит сменить временный пароль', async () => {
     const user = userEvent.setup()
-    renderRoute('/login')
+    await passwordLogin(user)
     await user.click(screen.getByRole('button', { name: 'Подставить' }))
     expect(screen.getByLabelText('Логин')).toHaveValue('992901001001')
     expect(screen.getByLabelText('Пароль')).toHaveValue('Demo2026')
@@ -75,7 +81,7 @@ describe('вход (SYS-ACC-010)', () => {
   it('преподаватель: веб-кабинета нет — пояснение про мобильное приложение (критерий 4)', async () => {
     const user = userEvent.setup()
     const c: Creds = await mock.cabinet.access.reset(2, { kind: 'staff', id: 15, login: 'farhod.teacher', reason: 'Выдача доступа преподавателю' })
-    const { router } = renderRoute('/login')
+    const { router } = await passwordLogin(user)
     await logIn(user, c)
     await changePassword(user, 'Teacher2026')
     expect(await screen.findByRole('heading', { name: 'Фарход Юсупов, вход выполнен' })).toBeInTheDocument()
@@ -89,7 +95,7 @@ describe('вход (SYS-ACC-010)', () => {
   it('пять неверных паролей — блокировка даже с верным паролем (критерий 3)', async () => {
     const user = userEvent.setup()
     const c = await ownerCreds(4)
-    renderRoute('/login')
+    await passwordLogin(user)
     for (let i = 0; i < 5; i++) {
       await logIn(user, { login: c.login, password: `wrong${i}` })
       await screen.findByRole('alert')
@@ -98,71 +104,94 @@ describe('вход (SYS-ACC-010)', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Слишком много неудачных попыток/))
   })
 
-  it('ссылки: «Забыли пароль?» с логином и заявка на подключение', async () => {
+  it('по умолчанию — вход по SMS-коду; ссылка на заявку центра', async () => {
     const user = userEvent.setup()
     renderRoute('/login')
-    await user.type(screen.getByLabelText('Логин'), 'my.login')
-    expect(screen.getByRole('link', { name: 'Забыли пароль?' })).toHaveAttribute('href', '/reset-password?login=my.login')
+    expect(screen.getByRole('tab', { name: 'По коду из SMS' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByLabelText('Номер телефона')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Забыли пароль?' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Оставить заявку на подключение' })).toHaveAttribute('href', '/register')
+    await user.click(screen.getByRole('tab', { name: 'По логину и паролю' }))
+    expect(screen.getByLabelText('Логин')).toBeInTheDocument()
     expect(document.title).toBe('Вход в кабинет центра · ЛИНИЯ')
   })
 })
 
-describe('восстановление пароля по SMS-коду (SYS-ACC-030)', () => {
-  it('код и новый пароль: ошибки под полями, затем вход с новым паролем', async () => {
+/** Отправить код на номер и прочитать демо-код с экрана (в демо SMS не уходит). */
+async function requestCode(user: User, phone: string) {
+  await user.clear(screen.getByLabelText('Номер телефона'))
+  await user.type(screen.getByLabelText('Номер телефона'), phone)
+  await user.click(screen.getByRole('button', { name: 'Получить код' }))
+  const demo = await screen.findByText(/Демо: SMS не отправляется, код — \d{6}/)
+  return demo.textContent!.match(/\d{6}/)![0]
+}
+const wrong = (code: string) => (code === '000000' ? '111111' : '000000')
+async function enterCode(user: User, code: string) {
+  await user.clear(screen.getByLabelText('Код из SMS'))
+  await user.type(screen.getByLabelText('Код из SMS'), code)
+  await user.click(screen.getByRole('button', { name: 'Войти' }))
+}
+
+describe('вход по SMS-коду (SYS-ACC-030)', () => {
+  it('неверный код — отказ; верный — выбор центра и роли, затем кабинет выбранного центра (критерии 1, 3)', async () => {
     const user = userEvent.setup()
-    const c = await ownerCreds(3)
-    const { router } = renderRoute(`/reset-password?login=${c.login}`)
-    expect(screen.getByLabelText('Логин')).toHaveValue(c.login)
+    const { router } = renderRoute('/login')
+    await user.click(screen.getByRole('button', { name: 'Подставить' }))
+    expect(screen.getByLabelText('Номер телефона')).toHaveValue('+992 90 100 10 01')
     await user.click(screen.getByRole('button', { name: 'Получить код' }))
-    const demo = await screen.findByText(/Демо: SMS не отправляется, код — \d{6}/)
-    const code = demo.textContent!.match(/\d{6}/)![0]
+    const code = (await screen.findByText(/Демо: SMS не отправляется, код — \d{6}/)).textContent!.match(/\d{6}/)![0]
+    expect(screen.getByText('Код отправлен на номер +992 90 100 10 01.')).toBeInTheDocument()
     expect(screen.getByText(/Повторно — через \d+ с/)).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText('Код из SMS'), code === '000000' ? '111111' : '000000')
-    await user.type(screen.getByLabelText('Новый пароль'), 'weak')
-    await user.type(screen.getByLabelText('Повторите пароль'), 'weak')
-    await user.click(screen.getByRole('button', { name: 'Сменить пароль' }))
-    expect(await screen.findByText('Неверный или просроченный код')).toBeInTheDocument()
-    expect(screen.getByText('Не короче 8 символов, с буквой и цифрой', { selector: '[role=alert]' })).toBeInTheDocument()
+    await enterCode(user, wrong(code))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Неверный код')
+    expect(screen.getByLabelText('Код из SMS')).toHaveValue('')
 
-    await user.clear(screen.getByLabelText('Код из SMS'))
-    await user.type(screen.getByLabelText('Код из SMS'), code)
-    await user.clear(screen.getByLabelText('Новый пароль'))
-    await user.clear(screen.getByLabelText('Повторите пароль'))
-    await user.type(screen.getByLabelText('Новый пароль'), 'Restored2026')
-    await user.type(screen.getByLabelText('Повторите пароль'), 'Restored2026')
-    await user.click(screen.getByRole('button', { name: 'Сменить пароль' }))
-
-    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-    expect(await screen.findByRole('status')).toHaveTextContent('Пароль изменён. Войдите с новым паролем.')
-    expect(screen.getByLabelText('Логин')).toHaveValue(c.login)
-    await user.type(screen.getByLabelText('Пароль'), 'Restored2026')
-    await user.click(screen.getByRole('button', { name: 'Войти' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/center/profile')) // временного пароля больше нет — сразу кабинет
-
-    const audit = await mock.audit.list({})
-    expect(audit.items.some((e: { action: string }) => e.action === 'auth.password_reset')).toBe(true)
+    await enterCode(user, code)
+    expect(await screen.findByRole('heading', { name: 'Выберите центр и роль' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Войти: Центр Перспектива, Владелец центра' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Войти: Дониш, Администратор центра' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/center/profile'))
+    expect(new URLSearchParams(router.state.location.search).get('center')).toBe('4')
+    expect(JSON.parse(sessionStorage.getItem('liniya.session')!)).toMatchObject({ role: 'admin', centerId: 4 })
+    expect(sessionStorage.getItem('liniya.token')).toMatch(/^mock-otp-/)
   })
 
-  it('несуществующий логин — тот же ответ (нельзя узнать, есть ли логин); повторно раньше 60 с — отказ', async () => {
+  it('номер без центров — «Нет доступа»; повторный код раньше минуты — отказ', async () => {
     const user = userEvent.setup()
-    renderRoute('/reset-password')
-    await user.type(screen.getByLabelText('Логин'), 'ghost.user')
-    await user.click(screen.getByRole('button', { name: 'Получить код' }))
-    expect(await screen.findByText('Если логин ghost.user есть на платформе, на его телефон отправлен код. Он действует 10 минут.')).toBeInTheDocument()
+    renderRoute('/login')
+    const code = await requestCode(user, '+992 98 765 43 21')
+    await enterCode(user, code)
+    expect(await screen.findByRole('heading', { name: 'Нет доступа к кабинету' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Номер +992 98 765 43 21 не привязан ни к одному учебному центру')
+    await user.click(screen.getByRole('button', { name: 'Ко входу' }))
 
-    await user.click(screen.getByRole('button', { name: 'Другой логин' }))
+    await requestCode(user, '+992 98 765 43 21')
+    await user.click(screen.getByRole('button', { name: 'Другой номер' }))
+    expect(screen.getByLabelText('Номер телефона')).toHaveValue('+992 98 765 43 21')
     await user.click(screen.getByRole('button', { name: 'Получить код' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Код уже отправлен\. Повторно — через \d+ с/)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Код уже отправлен. Повторите через минуту')
   })
 
-  it('пустой логин — ошибка под полем', async () => {
+  it('пять неверных кодов — блокировка, даже верный код не принимается (критерий 2)', async () => {
     const user = userEvent.setup()
-    renderRoute('/reset-password')
+    renderRoute('/login')
+    const code = await requestCode(user, '+992 90 100 10 03')
+    for (let i = 0; i < 5; i++) {
+      await enterCode(user, wrong(code))
+      await screen.findByRole('alert')
+    }
+    await enterCode(user, code)
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Слишком много попыток. Повторите позже'))
+  })
+
+  it('неверный номер — ошибка под полем, фокус на поле', async () => {
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await user.type(screen.getByLabelText('Номер телефона'), '12345')
     await user.click(screen.getByRole('button', { name: 'Получить код' }))
-    expect(await screen.findByText('Укажите логин')).toBeInTheDocument()
-    expect(screen.getByLabelText('Логин')).toHaveFocus()
+    expect(await screen.findByText('Номер в формате +992 и 9 цифр')).toBeInTheDocument()
+    expect(screen.getByLabelText('Номер телефона')).toHaveFocus()
   })
 })
 
