@@ -3,9 +3,12 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, isApiError, type InvoiceDto, type PayChannel } from '@/api'
-import { useConfirmPayment } from '@/api/mutations'
-import { useDictionaries, useInvoice } from '@/api/queries'
+import { errorMessage, isApiError } from '@/api/errors'
+import type { InvoiceDto } from '@/features/billing/api/types'
+import type { PayChannel } from '@/features/dictionaries/api/types'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
+import { useConfirmPaymentMutation, useGetInvoiceQuery } from './api/billingApi'
 import { Field } from '@/components/Field'
 import { fieldAria, inputClass } from '@/components/form-styles'
 import { QueryError } from '@/components/QueryError'
@@ -21,11 +24,11 @@ type Props = { invoiceId: string | null; onClose: () => void; onPaid?: (inv: Inv
 
 export function PaymentConfirmDialog({ invoiceId, onClose, onPaid }: Props) {
   const { t } = useTranslation()
-  const mutation = useConfirmPayment()
-  const invoice = useInvoice(invoiceId)
+  const [confirmPayment, { isLoading: confirming }] = useConfirmPaymentMutation()
+  const invoice = useGetInvoiceQuery(invoiceId ?? skipToken)
   const inv = invoice.data && invoice.data.id === invoiceId ? invoice.data : undefined
   return (
-    <Dialog open={invoiceId !== null} onOpenChange={open => !open && !mutation.isPending && onClose()}>
+    <Dialog open={invoiceId !== null} onOpenChange={open => !open && !confirming && onClose()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-base font-extrabold text-heading">{t('billing.confirm.title')}</DialogTitle>
@@ -36,7 +39,7 @@ export function PaymentConfirmDialog({ invoiceId, onClose, onPaid }: Props) {
         ) : !inv ? (
           <div className="h-48 animate-pulse rounded-xl bg-slate-100" />
         ) : (
-          <ConfirmForm invoice={inv} mutation={mutation} onClose={onClose} onPaid={onPaid} />
+          <ConfirmForm invoice={inv} confirmPayment={confirmPayment} confirming={confirming} onClose={onClose} onPaid={onPaid} />
         )}
       </DialogContent>
     </Dialog>
@@ -47,11 +50,17 @@ type Form = { method: string; reference: string; receivedOn: string; receivedAmo
 const ERROR_ORDER = ['method', 'reference', 'receivedOn', 'receivedAmount', 'confirmed'] as const
 const CONFIRM_TEXT: Partial<Record<PayChannel, 'bank' | 'cash' | 'card'>> = { bank: 'bank', cash: 'cash', card: 'card' }
 
-type FormProps = { invoice: InvoiceDto; mutation: ReturnType<typeof useConfirmPayment>; onClose: () => void; onPaid?: (inv: InvoiceDto) => void }
+type FormProps = {
+  invoice: InvoiceDto
+  confirmPayment: ReturnType<typeof useConfirmPaymentMutation>[0]
+  confirming: boolean
+  onClose: () => void
+  onPaid?: (inv: InvoiceDto) => void
+}
 
-function ConfirmForm({ invoice: i, mutation, onClose, onPaid }: FormProps) {
+function ConfirmForm({ invoice: i, confirmPayment, confirming, onClose, onPaid }: FormProps) {
   const { t } = useTranslation()
-  const methods = useDictionaries().data?.payMethods ?? []
+  const methods = useGetDictionariesQuery().data?.payMethods ?? []
   const { register, handleSubmit, control, setValue, setError, clearErrors, formState } = useForm<Form>({
     defaultValues: { method: methods[0]?.method ?? '', reference: '', receivedOn: todayUtc(), receivedAmount: String(i.amount), comment: '', confirmed: false },
   })
@@ -63,10 +72,10 @@ function ConfirmForm({ invoice: i, mutation, onClose, onPaid }: FormProps) {
 
   const onSubmit = handleSubmit(async v => {
     try {
-      const paid = await mutation.mutateAsync({
+      const paid = await confirmPayment({
         invoiceId: i.id,
         payload: { ...v, receivedAmount: v.receivedAmount === '' ? null : Number(v.receivedAmount) },
-      })
+      }).unwrap()
       toast.success(paidMessage(t, paid))
       onClose()
       onPaid?.(paid)
@@ -153,11 +162,11 @@ function ConfirmForm({ invoice: i, mutation, onClose, onPaid }: FormProps) {
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={confirming}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" size="lg" disabled={mutation.isPending}>
-          {mutation.isPending ? t('billing.confirm.submitting') : t('billing.confirm.submit')}
+        <Button type="submit" size="lg" disabled={confirming}>
+          {confirming ? t('billing.confirm.submitting') : t('billing.confirm.submit')}
         </Button>
       </DialogFooter>
     </form>

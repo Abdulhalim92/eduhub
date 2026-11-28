@@ -1,6 +1,6 @@
 /* Статус центра (прототип: ui.js centerStatus). Правило — из флагов DTO (status, isChurn), не пересчитывается здесь. */
 import { useTranslation } from 'react-i18next'
-import type { CenterDto } from '@/api'
+import type { CenterDto } from '@/features/centers/api/types'
 import { StatusBadge } from '@/components/StatusBadge'
 
 export function CenterStatusBadge({ center }: { center: Pick<CenterDto, 'status' | 'isChurn'> }) {

@@ -1,7 +1,7 @@
 /* Схематичная карта (прототип: moderation.js modMapSvg): точка центра, точка геокодера, круг 100 м и масштаб.
    Подложка условная — реальная карта появится с интеграцией INT-GEO-010. Цвета — классы палитры (без hex). */
 import { useTranslation } from 'react-i18next'
-import type { ModerationRequest } from '@/api'
+import type { ModerationRequest } from '@/features/platform/moderation/api/types'
 import { distanceM } from './geo'
 
 const W = 600

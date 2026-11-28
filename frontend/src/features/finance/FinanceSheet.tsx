@@ -3,8 +3,11 @@
 import { useState } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import type { CenterDto, InvoiceDto, LedgerEntry } from '@/api'
-import { useFinance } from '@/api/queries'
+import type { InvoiceDto } from '@/features/billing/api/types'
+import type { CenterDto } from '@/features/centers/api/types'
+import type { LedgerEntry } from '@/features/finance/api/types'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useGetFinanceQuery } from './api/financeApi'
 import { ProgressBar } from '@/components/ProgressBar'
 import { QueryError } from '@/components/QueryError'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -23,7 +26,7 @@ type Props = {
 
 export function FinanceSheet({ centerId, onClose, onTopUp, onChangeLimit }: Props) {
   const { t } = useTranslation()
-  const { data, error, refetch } = useFinance(centerId)
+  const { data, error, refetch } = useGetFinanceQuery(centerId ?? skipToken)
   // пока перечитывается другой центр — не показывать данные прежнего
   const fin = data && data.center.id === centerId ? data : undefined
 

@@ -1,6 +1,6 @@
 /* «Последний вход» центра (прототип: ui.js loginLabel): Ещё не входили / Сегодня / Вчера / N дней назад. */
 import { useTranslation } from 'react-i18next'
-import type { CenterDto } from '@/api'
+import type { CenterDto } from '@/features/centers/api/types'
 
 export function useLoginLabel() {
   const { t } = useTranslation()

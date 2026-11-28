@@ -7,9 +7,13 @@ import { useForm, useWatch } from 'react-hook-form'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, isApiError, type AuditEntry, type CenterDto, type InvoiceDto, type PlanChangeInfo, type PlanOption, type UsageItem } from '@/api'
-import { useRequestPlanChange, useSimulateOnlinePayment } from '@/api/mutations'
-import { usePlanChangeInfo } from '@/api/queries'
+import { errorMessage, isApiError } from '@/api/errors'
+import type { InvoiceDto } from '@/features/billing/api/types'
+import type { CenterDto, UsageItem } from '@/features/centers/api/types'
+import type { AuditEntry, PlanChangeInfo, PlanOption } from '@/features/plans/api/types'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { usePayOnlineMutation } from '@/features/billing/api/billingApi'
+import { useGetPlanChangeQuery, useRequestPlanChangeMutation } from './api/planChangeApi'
 import { ChoiceCard } from '@/components/ChoiceCard'
 import { Field } from '@/components/Field'
 import { fieldAria, inputClass } from '@/components/form-styles'
@@ -32,9 +36,9 @@ export type PlanChangePreset = { planId: string; reason: string }
 
 export function PlanChangeDialog({ centerId, preset, onClose }: { centerId: number | null; preset?: PlanChangePreset | null; onClose: () => void }) {
   const { t } = useTranslation()
-  const info = usePlanChangeInfo(centerId)
+  const info = useGetPlanChangeQuery(centerId ?? skipToken)
   const data = info.data && info.data.center.id === centerId ? info.data : undefined
-  const mutation = useRequestPlanChange()
+  const [requestPlanChange, { isLoading: requesting }] = useRequestPlanChangeMutation()
   // диалоги поверх: подтверждение оплаты, списание с баланса, отмена счёта
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [payInvoice, setPayInvoice] = useState<InvoiceDto | null>(null)
@@ -43,7 +47,7 @@ export function PlanChangeDialog({ centerId, preset, onClose }: { centerId: numb
 
   return (
     <>
-      <Dialog open={centerId !== null} onOpenChange={open => !open && !mutation.isPending && onClose()}>
+      <Dialog open={centerId !== null} onOpenChange={open => !open && !requesting && onClose()}>
         <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-extrabold text-heading">{t('planChange.title', { name: c?.name ?? '…' })}</DialogTitle>
@@ -70,7 +74,7 @@ export function PlanChangeDialog({ centerId, preset, onClose }: { centerId: numb
                   key={`${data.center.plan}-${data.options.length}`}
                   info={data}
                   preset={preset}
-                  mutation={mutation}
+                  requestPlanChange={requestPlanChange} requesting={requesting}
                   onDone={onClose}
                   onRefresh={() => info.refetch()}
                 />
@@ -206,12 +210,13 @@ type Form = { plan: string; reason: string; payMode: PayMode; deferConfirmed: bo
 type PlanFormProps = {
   info: PlanChangeInfo
   preset?: PlanChangePreset | null
-  mutation: ReturnType<typeof useRequestPlanChange>
+  requestPlanChange: ReturnType<typeof useRequestPlanChangeMutation>[0]
+  requesting: boolean
   onDone: () => void
   onRefresh: () => void
 }
 
-function PlanForm({ info, preset, mutation, onDone, onRefresh }: PlanFormProps) {
+function PlanForm({ info, preset, requestPlanChange, requesting, onDone, onRefresh }: PlanFormProps) {
   const { t } = useTranslation()
   const { center: c, options } = info
   const initial = options.find(o => o.id === preset?.planId && o.fits) ?? options.find(o => o.recommended && o.fits) ?? options.find(o => o.fits)
@@ -241,7 +246,7 @@ function PlanForm({ info, preset, mutation, onDone, onRefresh }: PlanFormProps) 
     if (!sel) return
     const paid = sel.price > 0
     try {
-      const r = await mutation.mutateAsync({
+      const r = await requestPlanChange({
         centerId: c.id,
         payload: {
           planId: sel.id,
@@ -250,7 +255,7 @@ function PlanForm({ info, preset, mutation, onDone, onRefresh }: PlanFormProps) 
           deferPayment: paid && v.payMode === 'defer',
           deferConfirmed: v.deferConfirmed,
         },
-      })
+      }).unwrap()
       const amount = r.invoice ? formatMoney(r.invoice.amount) : ''
       if (r.mode === 'invoice') {
         // остаёмся в окне: теперь видны счёт и действия оплаты
@@ -362,11 +367,11 @@ function PlanForm({ info, preset, mutation, onDone, onRefresh }: PlanFormProps) 
       {summary && <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">{summary}</p>}
 
       <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={requesting}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" size="lg" disabled={!sel || mutation.isPending}>
-          {mutation.isPending ? t('planChange.submit.busy') : submitLabel}
+        <Button type="submit" size="lg" disabled={!sel || requesting}>
+          {requesting ? t('planChange.submit.busy') : submitLabel}
         </Button>
       </DialogFooter>
     </form>
@@ -377,12 +382,12 @@ type PendingProps = { inv: InvoiceDto; onConfirm: () => void; onPayFromBalance: 
 
 function PendingInvoice({ inv, onConfirm, onPayFromBalance, onCancel, onPaid }: PendingProps) {
   const { t } = useTranslation()
-  const online = useSimulateOnlinePayment()
+  const [payOnline, { isLoading: payingOnline }] = usePayOnlineMutation()
   const canPay = !!inv.fromBalance?.possible
 
   const demoOnline = async () => {
     try {
-      const paid = await online.mutateAsync(inv.id)
+      const paid = await payOnline(inv.id).unwrap()
       toast.success(paidMessage(t, paid))
       onPaid()
     } catch (e) {
@@ -411,7 +416,7 @@ function PendingInvoice({ inv, onConfirm, onPayFromBalance, onCancel, onPaid }: 
         <Button variant="outline" onClick={onPayFromBalance} disabled={!canPay}>
           {t('planChange.pending.payFromBalance')}
         </Button>
-        <Button variant="outline" className="border-dashed" onClick={demoOnline} disabled={online.isPending}>
+        <Button variant="outline" className="border-dashed" onClick={demoOnline} disabled={payingOnline}>
           {t('planChange.pending.demoOnline')}
         </Button>
         <Button variant="outline" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={onCancel}>

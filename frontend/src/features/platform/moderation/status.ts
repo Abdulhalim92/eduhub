@@ -1,4 +1,4 @@
-import type { ModerationStatus } from '@/api'
+import type { ModerationStatus } from '@/features/platform/moderation/api/types'
 import type { BadgeTone } from '@/components/StatusBadge'
 
 export const MOD_STATUS_TONE: Record<ModerationStatus, BadgeTone> = {

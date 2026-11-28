@@ -1,7 +1,7 @@
 /* Панель и диалоги финансов центра для экрана: openFinance(id) — панель «Финансы центра», openTopUp(center) — пополнение.
    Пополнение и лимит открываются и из меню строки, и поверх панели; после сохранения панель и реестр перечитываются (api/mutations). */
 import { useState } from 'react'
-import type { CenterDto } from '@/api'
+import type { CenterDto } from '@/features/centers/api/types'
 import { FinanceSheet } from './FinanceSheet'
 import { OverdraftDialog } from './OverdraftDialog'
 import { TopUpDialog } from './TopUpDialog'

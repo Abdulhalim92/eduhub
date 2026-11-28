@@ -4,7 +4,7 @@
 import { ArrowLeftRight, CirclePlus, LogIn, MessageSquarePlus, SlidersHorizontal, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { CenterDto } from '@/api'
+import type { CenterDto } from '@/features/centers/api/types'
 import type { RowAction } from '@/components/RowActions'
 import { Button } from '@/components/ui/button'
 import { AdminAccessDialog } from '@/features/access/AdminAccessDialog'

@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type IssuedCredentials } from '@/api'
-import { useAdminAccess } from '@/api/mutations'
+import { errorMessage } from '@/api/errors'
+import type { IssuedCredentials } from '@/features/access/api/types'
+import { useIssueAdminAccessMutation } from './api/accessApi'
 import { Field } from '@/components/Field'
 import { fieldAria, inputClass } from '@/components/form-styles'
 import { Button } from '@/components/ui/button'
@@ -16,14 +17,14 @@ type Center = { id: number; name: string }
 
 export function AdminAccessDialog({ center, onClose }: { center: Center | null; onClose: () => void }) {
   const { t } = useTranslation()
-  const mutation = useAdminAccess()
+  const [issueAccess, { isLoading: issuing }] = useIssueAdminAccessMutation()
   const [issued, setIssued] = useState<IssuedCredentials | null>(null)
   const close = () => {
     setIssued(null)
     onClose()
   }
   return (
-    <Dialog open={!!center} onOpenChange={open => !open && !mutation.isPending && !issued && close()}>
+    <Dialog open={!!center} onOpenChange={open => !open && !issuing && !issued && close()}>
       <DialogContent
         className="[--dialog-p:--spacing(6)] sm:max-w-lg"
         showCloseButton={!issued}
@@ -40,7 +41,7 @@ export function AdminAccessDialog({ center, onClose }: { center: Center | null; 
             {issued ? (
               <Credentials creds={issued} onDone={close} />
             ) : (
-              <ReasonForm centerId={center.id} mutation={mutation} onIssued={setIssued} onCancel={close} />
+              <ReasonForm centerId={center.id} issueAccess={issueAccess} issuing={issuing} onIssued={setIssued} onCancel={close} />
             )}
           </>
         )}
@@ -49,15 +50,21 @@ export function AdminAccessDialog({ center, onClose }: { center: Center | null; 
   )
 }
 
-type FormProps = { centerId: number; mutation: ReturnType<typeof useAdminAccess>; onIssued: (c: IssuedCredentials) => void; onCancel: () => void }
+type FormProps = {
+  centerId: number
+  issueAccess: ReturnType<typeof useIssueAdminAccessMutation>[0]
+  issuing: boolean
+  onIssued: (c: IssuedCredentials) => void
+  onCancel: () => void
+}
 
-function ReasonForm({ centerId, mutation, onIssued, onCancel }: FormProps) {
+function ReasonForm({ centerId, issueAccess, issuing, onIssued, onCancel }: FormProps) {
   const { t } = useTranslation()
   const { register, handleSubmit, setError, clearErrors, formState } = useForm<{ reason: string }>({ defaultValues: { reason: '' } })
   const error = formState.errors.reason?.message
   const onSubmit = handleSubmit(async v => {
     try {
-      onIssued(await mutation.mutateAsync({ centerId, reason: v.reason }))
+      onIssued(await issueAccess({ centerId, reason: v.reason }).unwrap())
     } catch (e) {
       if (!applyServerErrors(e, setError, ['reason'])) toast.error(errorMessage(e, t('common.saveError')))
     }
@@ -75,11 +82,11 @@ function ReasonForm({ centerId, mutation, onIssued, onCancel }: FormProps) {
         />
       </Field>
       <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={issuing}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" size="lg" variant="destructive" disabled={mutation.isPending}>
-          {mutation.isPending ? t('access.submitting') : t('access.submit')}
+        <Button type="submit" size="lg" variant="destructive" disabled={issuing}>
+          {issuing ? t('access.submitting') : t('access.submit')}
         </Button>
       </DialogFooter>
     </form>

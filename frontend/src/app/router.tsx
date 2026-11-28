@@ -14,6 +14,7 @@ import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { NotFound } from './NotFound'
+import { RequireSession } from './RequireSession'
 import type { RouteHandle, ScreenKey } from './route-handle'
 
 /** Экран-заглушка: заголовок, файл прототипа (относительно src/js/views/), родитель для дочерних страниц. */
@@ -36,7 +37,11 @@ export const routes: RouteObject[] = [
   { path: '/register', element: <RegisterPage /> },
   {
     path: '/platform',
-    element: <PlatformLayout />,
+    element: (
+      <RequireSession>
+        <PlatformLayout />
+      </RequireSession>
+    ),
     children: [
       { index: true, element: <HomeScreen />, handle: { title: 'screens.platform.home' } satisfies RouteHandle },
       { path: 'centers', element: <CentersScreen />, handle: { title: 'screens.platform.centers' } satisfies RouteHandle },
@@ -58,7 +63,11 @@ export const routes: RouteObject[] = [
   },
   {
     path: '/center',
-    element: <CenterLayout />,
+    element: (
+      <RequireSession>
+        <CenterLayout />
+      </RequireSession>
+    ),
     children: [
       // в прототипе кабинет открывается на профиле центра
       { index: true, element: <CabinetIndexRedirect /> },

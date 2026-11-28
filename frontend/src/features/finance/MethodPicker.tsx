@@ -1,5 +1,5 @@
 /* Выбор способа, которым деньги поступили вне системы (пополнение, оплата пакета SMS, подтверждение оплаты счёта). */
-import type { PayMethod } from '@/api'
+import type { PayMethod } from '@/features/dictionaries/api/types'
 import { cn } from '@/lib/utils'
 import { PAY_CHANNEL_UI } from './pay-channels'
 

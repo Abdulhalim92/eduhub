@@ -3,9 +3,11 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type CenterDto, type PayMethod } from '@/api'
-import { useTopUp } from '@/api/mutations'
-import { useDictionaries } from '@/api/queries'
+import { errorMessage } from '@/api/errors'
+import type { CenterDto } from '@/features/centers/api/types'
+import type { PayMethod } from '@/features/dictionaries/api/types'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
+import { useTopUpMutation } from './api/financeApi'
 import { Field } from '@/components/Field'
 import { fieldAria, inputClass } from '@/components/form-styles'
 import { Button } from '@/components/ui/button'
@@ -20,9 +22,9 @@ const ERROR_ORDER = ['method', 'reference', 'receivedOn', 'receivedAmount', 'con
 
 export function TopUpDialog({ center, onClose }: { center: CenterDto | null; onClose: () => void }) {
   const { t } = useTranslation()
-  const mutation = useTopUp()
+  const [topUp, { isLoading: saving }] = useTopUpMutation()
   return (
-    <Dialog open={!!center} onOpenChange={open => !open && !mutation.isPending && onClose()}>
+    <Dialog open={!!center} onOpenChange={open => !open && !saving && onClose()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-2xl">
         {center && (
           <>
@@ -30,7 +32,7 @@ export function TopUpDialog({ center, onClose }: { center: CenterDto | null; onC
               <DialogTitle className="text-base font-extrabold text-heading">{t('topUp.title')}</DialogTitle>
               <DialogDescription>{center.name}</DialogDescription>
             </DialogHeader>
-            <TopUpForm center={center} mutation={mutation} onDone={onClose} />
+            <TopUpForm center={center} topUp={topUp} saving={saving} onDone={onClose} />
           </>
         )}
       </DialogContent>
@@ -38,9 +40,16 @@ export function TopUpDialog({ center, onClose }: { center: CenterDto | null; onC
   )
 }
 
-function TopUpForm({ center, mutation, onDone }: { center: CenterDto; mutation: ReturnType<typeof useTopUp>; onDone: () => void }) {
+type TopUpFormProps = {
+  center: CenterDto
+  topUp: ReturnType<typeof useTopUpMutation>[0]
+  saving: boolean
+  onDone: () => void
+}
+
+function TopUpForm({ center, topUp, saving, onDone }: TopUpFormProps) {
   const { t } = useTranslation()
-  const methods: PayMethod[] = useDictionaries().data?.payMethods ?? []
+  const methods: PayMethod[] = useGetDictionariesQuery().data?.payMethods ?? []
   const { register, handleSubmit, control, setValue, setError, clearErrors, formState } = useForm<Form>({
     defaultValues: { method: methods[0]?.method ?? '', reference: '', receivedOn: todayUtc(), receivedAmount: '', comment: '', confirmed: false },
   })
@@ -57,10 +66,10 @@ function TopUpForm({ center, mutation, onDone }: { center: CenterDto; mutation: 
 
   const onSubmit = handleSubmit(async v => {
     try {
-      const c = await mutation.mutateAsync({
+      const c = await topUp({
         centerId: center.id,
         payload: { ...v, receivedAmount: v.receivedAmount === '' ? null : Number(v.receivedAmount) },
-      })
+      }).unwrap()
       toast.success(t('topUp.done', { name: c.name, balance: formatMoney(c.balance) }))
       onDone()
     } catch (e) {
@@ -144,11 +153,11 @@ function TopUpForm({ center, mutation, onDone }: { center: CenterDto; mutation: 
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={saving}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" size="lg" disabled={mutation.isPending}>
-          {mutation.isPending ? t('topUp.submitting') : t('topUp.submit')}
+        <Button type="submit" size="lg" disabled={saving}>
+          {saving ? t('topUp.submitting') : t('topUp.submit')}
         </Button>
       </DialogFooter>
     </form>

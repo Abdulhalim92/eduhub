@@ -3,7 +3,8 @@ import { Plus } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { useCentersList } from '@/api/queries'
+import { isShowingPrevious } from '@/api/query-state'
+import { useGetCentersQuery } from './api/centersApi'
 import { PageHeader } from '@/components/PageHeader'
 import { Pager } from '@/components/Pager'
 import { Panel } from '@/components/Panel'
@@ -21,13 +22,14 @@ export function CentersScreen() {
   const filtersState = useCentersFilters()
   const { filters, setPage, reset } = filtersState
   const { q, plan, city, filter, page } = filters
-  const list = useCentersList({ q, plan, city, filter, page, pageSize: PAGE_SIZE })
+  const list = useGetCentersQuery({ q, plan, city, filter, page, pageSize: PAGE_SIZE })
   const data = list.data
+  const showingPrevious = isShowingPrevious(list)
   const actions = useCenterActions()
 
   // страница опустела (ссылка на 9-ю страницу, центр ушёл из выборки) — показать последнюю существующую
   const lastPage = data ? pageCount(data.total) : 1
-  const pageGone = !!data && !list.isPlaceholderData && data.items.length === 0 && data.total > 0 && page > lastPage
+  const pageGone = !!data && !showingPrevious && data.items.length === 0 && data.total > 0 && page > lastPage
   useEffect(() => {
     if (pageGone) setPage(lastPage, { replace: true })
   }, [pageGone, lastPage, setPage])
@@ -52,8 +54,8 @@ export function CentersScreen() {
         <CentersTable
           data={data}
           error={list.error}
-          isPending={list.isPending || pageGone /* пока страница исправляется — загрузка, а не «Ничего не найдено» */}
-          isRefreshing={list.isPlaceholderData}
+          isPending={list.isLoading || pageGone /* пока страница исправляется — загрузка, а не «Ничего не найдено» */}
+          isRefreshing={showingPrevious}
           onRetry={() => list.refetch()}
           onReset={reset}
           primaryFor={actions.enterButton}

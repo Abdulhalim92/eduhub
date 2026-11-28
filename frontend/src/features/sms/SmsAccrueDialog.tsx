@@ -3,9 +3,11 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { errorMessage, type CenterDto, type SmsAccrueMode, type SmsPackage } from '@/api'
-import { useAccrueSms } from '@/api/mutations'
-import { useDictionaries, useSmsPackages } from '@/api/queries'
+import { errorMessage } from '@/api/errors'
+import type { CenterDto } from '@/features/centers/api/types'
+import type { SmsAccrueMode, SmsPackage } from '@/features/sms/api/types'
+import { useGetDictionariesQuery } from '@/features/dictionaries/api/dictionariesApi'
+import { useAccrueSmsMutation, useGetSmsPackagesQuery } from './api/smsApi'
 import { ChoiceCard } from '@/components/ChoiceCard'
 import { Field } from '@/components/Field'
 import { fieldAria, inputClass } from '@/components/form-styles'
@@ -32,10 +34,10 @@ const ERROR_ORDER = ['packageId', 'mode', 'method', 'reference', 'receivedOn', '
 
 export function SmsAccrueDialog({ center, onClose }: { center: CenterDto | null; onClose: () => void }) {
   const { t } = useTranslation()
-  const mutation = useAccrueSms()
-  const packages = useSmsPackages()
+  const [accrueSms, { isLoading: saving }] = useAccrueSmsMutation()
+  const packages = useGetSmsPackagesQuery(undefined, { skip: !center })
   return (
-    <Dialog open={!!center} onOpenChange={open => !open && !mutation.isPending && onClose()}>
+    <Dialog open={!!center} onOpenChange={open => !open && !saving && onClose()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto [--dialog-p:--spacing(6)] sm:max-w-xl">
         {center && (
           <>
@@ -48,7 +50,7 @@ export function SmsAccrueDialog({ center, onClose }: { center: CenterDto | null;
             ) : !packages.data ? (
               <div className="h-40 animate-pulse rounded-xl bg-slate-100" />
             ) : (
-              <SmsForm center={center} packages={packages.data.items.filter(p => p.active)} mutation={mutation} onDone={onClose} />
+              <SmsForm center={center} packages={packages.data.filter(p => p.active)} accrueSms={accrueSms} saving={saving} onDone={onClose} />
             )}
           </>
         )}
@@ -57,11 +59,17 @@ export function SmsAccrueDialog({ center, onClose }: { center: CenterDto | null;
   )
 }
 
-type FormProps = { center: CenterDto; packages: SmsPackage[]; mutation: ReturnType<typeof useAccrueSms>; onDone: () => void }
+type FormProps = {
+  center: CenterDto
+  packages: SmsPackage[]
+  accrueSms: ReturnType<typeof useAccrueSmsMutation>[0]
+  saving: boolean
+  onDone: () => void
+}
 
-function SmsForm({ center: c, packages, mutation, onDone }: FormProps) {
+function SmsForm({ center: c, packages, accrueSms, saving, onDone }: FormProps) {
   const { t } = useTranslation()
-  const methods = useDictionaries().data?.payMethods ?? []
+  const methods = useGetDictionariesQuery().data?.payMethods ?? []
   const defaultPack = packages.find(p => p.sms === 1000) ?? packages[0]
   const canPay = (p: SmsPackage | undefined) => !!p && c.available >= p.price
   const { register, handleSubmit, control, setValue, setError, clearErrors, formState } = useForm<Form>({
@@ -93,7 +101,7 @@ function SmsForm({ center: c, packages, mutation, onDone }: FormProps) {
   const onSubmit = handleSubmit(async v => {
     if (!pk) return
     try {
-      const sale = await mutation.mutateAsync({
+      const sale = await accrueSms({
         centerId: c.id,
         packageId: v.packageId,
         mode: v.mode,
@@ -103,7 +111,7 @@ function SmsForm({ center: c, packages, mutation, onDone }: FormProps) {
         receivedAmount: pk.price,
         confirmed: v.confirmed,
         reason: v.reason,
-      })
+      }).unwrap()
       toast.success(t('smsAccrue.done', { value: formatNumber(sale.sms), center: sale.center }))
       onDone()
     } catch (e) {
@@ -226,11 +234,11 @@ function SmsForm({ center: c, packages, mutation, onDone }: FormProps) {
       )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={mutation.isPending}>
+        <Button type="button" variant="outline" size="lg" onClick={onDone} disabled={saving}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" size="lg" disabled={mutation.isPending || !pk}>
-          {mutation.isPending ? t('smsAccrue.submitting') : t('smsAccrue.submit', { value: formatNumber(pk?.sms ?? 0) })}
+        <Button type="submit" size="lg" disabled={saving || !pk}>
+          {saving ? t('smsAccrue.submitting') : t('smsAccrue.submit', { value: formatNumber(pk?.sms ?? 0) })}
         </Button>
       </DialogFooter>
     </form>

@@ -5,32 +5,39 @@ import { CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate } from 'react-router'
-import { errorMessage, type Session } from '@/api'
-import { useChangePassword, useLogin } from '@/api/mutations'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
+import { errorMessage } from '@/api/errors'
 import { Field } from '@/components/Field'
 import { fieldAria } from '@/components/form-styles'
 import { PasswordInput } from '@/components/PasswordInput'
 import { Button } from '@/components/ui/button'
 import { applyServerErrors } from '@/lib/server-errors'
 import { clearSession, saveSession } from '@/lib/session'
+import { useChangePasswordMutation, useLoginMutation } from './api/authApi'
+import type { Session, SignedIn } from './api/types'
 import { authInput, DEMO_LOGIN } from './auth-styles'
 import { AuthLayout } from './AuthLayout'
 import { FormAlert } from './FormAlert'
 
 type LoginState = { login?: string; resetDone?: boolean } | null
 
+/** Возврат после входа — только на свой путь (не на чужой сайт по ссылке ?next=https://…). */
+const safeNext = (next: string | null) => (next && next.startsWith('/') && !next.startsWith('//') ? next : null)
+
 export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const state = useLocation().state as LoginState
+  const [params] = useSearchParams()
   const [step, setStep] = useState<'login' | 'change' | 'done'>('login')
   const [creds, setCreds] = useState({ login: '', password: '' })
   const [user, setUser] = useState<Session | null>(null)
 
-  const enter = (u: Session) => {
-    saveSession(u)
-    if (u.cabinet) navigate(`/center/profile?center=${u.centerId}`)
+  const enter = ({ session: u, token }: SignedIn) => {
+    saveSession(u, token)
+    // SuperAdmin — в кабинет платформы (или туда, где истекла сессия), владелец и админ центра — в кабинет центра
+    if (u.role === 'superadmin') navigate(safeNext(params.get('next')) ?? '/platform')
+    else if (u.cabinet) navigate(`/center/profile?center=${u.centerId}`)
     else {
       setUser(u)
       setStep('done')
@@ -82,28 +89,28 @@ export function LoginPage() {
       <LoginForm
         initialLogin={state?.login ?? ''}
         resetDone={!!state?.resetDone}
-        onSuccess={(u, c) => {
+        onSuccess={(r, c) => {
           setCreds(c)
-          if (u.mustChange) setStep('change')
-          else enter(u)
+          if (r.session.mustChange) setStep('change')
+          else enter(r)
         }}
       />
     </AuthLayout>
   )
 }
 
-type LoginFormProps = { initialLogin: string; resetDone: boolean; onSuccess: (u: Session, creds: { login: string; password: string }) => void }
+type LoginFormProps = { initialLogin: string; resetDone: boolean; onSuccess: (r: SignedIn, creds: { login: string; password: string }) => void }
 
 function LoginForm({ initialLogin, resetDone, onSuccess }: LoginFormProps) {
   const { t } = useTranslation()
-  const mutation = useLogin()
+  const [signIn, { isLoading: loggingIn }] = useLoginMutation()
   const [error, setError] = useState('')
   const { register, handleSubmit, setValue, control } = useForm({ defaultValues: { login: initialLogin, password: '' } })
 
   const onSubmit = handleSubmit(async v => {
     setError('')
     try {
-      onSuccess(await mutation.mutateAsync(v), v)
+      onSuccess(await signIn(v).unwrap(), v)
     } catch (e) {
       // одно сообщение для «нет логина» и «не тот пароль»; пароль стираем, логин оставляем
       setError(errorMessage(e, t('common.loadError')))
@@ -127,8 +134,8 @@ function LoginForm({ initialLogin, resetDone, onSuccess }: LoginFormProps) {
           {t('auth.login.forgot')}
         </Link>
       </div>
-      <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
-        {mutation.isPending ? t('auth.login.submitting') : t('auth.login.submit')}
+      <Button type="submit" size="lg" className="w-full" disabled={loggingIn}>
+        {loggingIn ? t('auth.login.submitting') : t('auth.login.submit')}
       </Button>
       <p className="text-[11px] text-slate-500">{t('auth.login.hint')}</p>
       {/* демо: SMS и выдачи логинов нет — даём готовый доступ, чтобы вход можно было попробовать */}
@@ -152,9 +159,9 @@ function LoginForm({ initialLogin, resetDone, onSuccess }: LoginFormProps) {
   )
 }
 
-function ChangeForm({ creds, onDone }: { creds: { login: string; password: string }; onDone: (u: Session) => void }) {
+function ChangeForm({ creds, onDone }: { creds: { login: string; password: string }; onDone: (r: SignedIn) => void }) {
   const { t } = useTranslation()
-  const mutation = useChangePassword()
+  const [changePassword, { isLoading: changing }] = useChangePasswordMutation()
   const [error, setError] = useState('')
   const { register, handleSubmit, setError: setFieldError, clearErrors, formState } = useForm({ defaultValues: { newPassword: '', repeat: '' } })
   const errors = formState.errors
@@ -167,7 +174,7 @@ function ChangeForm({ creds, onDone }: { creds: { login: string; password: strin
       return
     }
     try {
-      onDone(await mutation.mutateAsync({ ...creds, newPassword: v.newPassword }))
+      onDone(await changePassword({ ...creds, newPassword: v.newPassword }).unwrap())
     } catch (e) {
       if (!applyServerErrors(e, setFieldError, ['newPassword'])) setError(errorMessage(e, t('common.saveError')))
     }
@@ -193,8 +200,8 @@ function ChangeForm({ creds, onDone }: { creds: { login: string; password: strin
           {...register('repeat', { onChange: () => clearErrors('repeat') })}
         />
       </Field>
-      <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
-        {mutation.isPending ? t('auth.login.submitting') : t('auth.change.submit')}
+      <Button type="submit" size="lg" className="w-full" disabled={changing}>
+        {changing ? t('auth.login.submitting') : t('auth.change.submit')}
       </Button>
     </form>
   )

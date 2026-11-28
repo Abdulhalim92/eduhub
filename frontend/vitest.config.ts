@@ -12,6 +12,8 @@ export default mergeConfig(
       css: false,
       // jsdom-тесты тяжёлые: больше двух параллельных потоков рабочая машина (7 ГБ) не тянет — уходит в swap, тесты падают по таймауту
       maxWorkers: 2,
+      // тесты — на mock прототипа, даже если в .env.local включён сервер
+      env: { VITE_API_MODE: 'mock' },
     },
   }),
 )

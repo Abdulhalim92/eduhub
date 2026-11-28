@@ -1,6 +1,6 @@
 /* Расстояние между точкой центра и точкой геокодера (BR-017: больше 150 м — «GPS расходится»).
    Считается на клиенте, потому что модератор правит координаты до отправки решения; сервер проверяет условия публикации сам. */
-import type { CatalogDesc, GeoPoint } from '@/api'
+import type { CatalogDesc, GeoPoint } from '@/features/platform/moderation/api/types'
 
 export const GPS_MISMATCH_M = 150
 /** Минимальная длина описания RU и TJ для публикации (BR-017). */

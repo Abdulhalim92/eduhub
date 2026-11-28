@@ -3,8 +3,8 @@
 import { ExternalLink, LogIn, Wallet } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
-import type { CenterDto } from '@/api'
-import { useRecentActivity } from '@/api/queries'
+import type { CenterDto } from '@/features/centers/api/types'
+import { useGetRecentActivityQuery } from './api/homeApi'
 import { Panel } from '@/components/Panel'
 import { QueryError } from '@/components/QueryError'
 import { RowActions } from '@/components/RowActions'
@@ -23,7 +23,7 @@ export function ActivityTable() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const loginLabel = useLoginLabel()
-  const { data, error, isPending, refetch } = useRecentActivity(5)
+  const { data, error, refetch } = useGetRecentActivityQuery(5)
   const finance = useFinanceUi()
   const support = useEnterSupportNav()
   // от 768 px — таблица; на телефоне — карточки с теми же данными и меню
@@ -69,7 +69,7 @@ export function ActivityTable() {
       {error ? (
         <QueryError error={error} onRetry={() => refetch()} />
       ) : !wide ? (
-        isPending ? (
+        !data ? (
           <div className="flex flex-col gap-3 p-4">
             {Array.from({ length: 5 }, (_, i) => (
               <div key={i} data-testid="skeleton-row" className="h-16 animate-pulse rounded-xl bg-slate-100" />
@@ -77,7 +77,7 @@ export function ActivityTable() {
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {data.items.map(c => (
+            {data.map(c => (
               <li key={c.id}>
                 {/* телефон: имя и меню — сверху, город и тариф — под именем, вход, уроки и статус — одной строкой внизу */}
                 <article aria-label={c.name} onClick={() => navigate(registryUrl(c))} className="flex cursor-pointer flex-col gap-2 px-4 py-3.5 text-xs transition hover:bg-slate-50">
@@ -117,7 +117,7 @@ export function ActivityTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {isPending
+              {!data
                 ? Array.from({ length: 5 }, (_, i) => (
                     <tr key={i} data-testid="skeleton-row">
                       {Array.from({ length: COLS }, (_, j) => (
@@ -127,7 +127,7 @@ export function ActivityTable() {
                       ))}
                     </tr>
                   ))
-                : data.items.map(c => (
+                : data.map(c => (
                     <tr key={c.id} onClick={() => navigate(registryUrl(c))} className="cursor-pointer transition hover:bg-slate-50">
                       <td className="py-3.5">
                         {nameLink(c)}

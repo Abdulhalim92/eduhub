@@ -6,8 +6,9 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { errorMessage, type ResetRequested } from '@/api'
-import { useConfirmReset, useRequestReset } from '@/api/mutations'
+import { errorMessage } from '@/api/errors'
+import type { ResetRequested } from '@/features/auth/api/types'
+import { useConfirmResetMutation, useRequestResetMutation } from './api/authApi'
 import { Field } from '@/components/Field'
 import { fieldAria } from '@/components/form-styles'
 import { PasswordInput } from '@/components/PasswordInput'
@@ -56,7 +57,7 @@ export function ResetPasswordPage() {
 
 function RequestStep({ initialLogin, onSent }: { initialLogin: string; onSent: (s: Sent) => void }) {
   const { t } = useTranslation()
-  const mutation = useRequestReset()
+  const [requestReset, { isLoading: sending }] = useRequestResetMutation()
   const [error, setError] = useState('')
   const { register, handleSubmit, setError: setFieldError, clearErrors, formState } = useForm({ defaultValues: { login: initialLogin } })
   const fieldError = formState.errors.login?.message
@@ -65,7 +66,7 @@ function RequestStep({ initialLogin, onSent }: { initialLogin: string; onSent: (
     setError('')
     const login = v.login.trim().toLowerCase()
     try {
-      onSent(markSent(await mutation.mutateAsync(login), login))
+      onSent(markSent(await requestReset(login).unwrap(), login))
     } catch (e) {
       if (!applyServerErrors(e, setFieldError, ['login'])) setError(errorMessage(e, t('common.saveError')))
     }
@@ -85,8 +86,8 @@ function RequestStep({ initialLogin, onSent }: { initialLogin: string; onSent: (
           {...register('login', { onChange: () => clearErrors('login') })}
         />
       </Field>
-      <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
-        {mutation.isPending ? t('auth.reset.sending') : t('auth.reset.send')}
+      <Button type="submit" size="lg" className="w-full" disabled={sending}>
+        {sending ? t('auth.reset.sending') : t('auth.reset.send')}
       </Button>
     </form>
   )
@@ -108,8 +109,8 @@ type ConfirmProps = { sent: Sent; onResent: (r: ResetRequested) => void; onChang
 function ConfirmStep({ sent, onResent, onChangeLogin }: ConfirmProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const confirm = useConfirmReset()
-  const resend = useRequestReset()
+  const [confirmReset, { isLoading: confirming }] = useConfirmResetMutation()
+  const [resendCode, { isLoading: resending }] = useRequestResetMutation()
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const left = useSecondsLeft(sent.at + sent.resendIn * 1000)
@@ -123,7 +124,7 @@ function ConfirmStep({ sent, onResent, onChangeLogin }: ConfirmProps) {
       return
     }
     try {
-      await confirm.mutateAsync({ login: sent.login, code: v.code.trim(), newPassword: v.newPassword })
+      await confirmReset({ login: sent.login, code: v.code.trim(), newPassword: v.newPassword }).unwrap()
       navigate('/login', { state: { login: sent.login, resetDone: true } })
     } catch (e) {
       if (!applyServerErrors(e, setFieldError, ['code', 'newPassword'])) setError(errorMessage(e, t('common.saveError')))
@@ -133,7 +134,7 @@ function ConfirmStep({ sent, onResent, onChangeLogin }: ConfirmProps) {
   const doResend = async () => {
     setError('')
     try {
-      onResent(await resend.mutateAsync(sent.login))
+      onResent(await resendCode(sent.login).unwrap())
       setNotice(t('auth.reset.resent'))
     } catch (e) {
       setError(errorMessage(e, t('common.saveError')))
@@ -177,8 +178,8 @@ function ConfirmStep({ sent, onResent, onChangeLogin }: ConfirmProps) {
           {...register('repeat', { onChange: () => clearErrors('repeat') })}
         />
       </Field>
-      <Button type="submit" size="lg" className="w-full" disabled={confirm.isPending}>
-        {confirm.isPending ? t('auth.reset.submitting') : t('auth.reset.submit')}
+      <Button type="submit" size="lg" className="w-full" disabled={confirming}>
+        {confirming ? t('auth.reset.submitting') : t('auth.reset.submit')}
       </Button>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <button type="button" onClick={onChangeLogin} className="font-semibold text-slate-600 hover:underline">
@@ -189,7 +190,7 @@ function ConfirmStep({ sent, onResent, onChangeLogin }: ConfirmProps) {
             {t('auth.reset.resendIn', { s: left })}
           </span>
         ) : (
-          <button type="button" onClick={doResend} disabled={resend.isPending} className="font-semibold text-brand hover:underline disabled:opacity-60">
+          <button type="button" onClick={doResend} disabled={resending} className="font-semibold text-brand hover:underline disabled:opacity-60">
             {t('auth.reset.resend')}
           </button>
         )}
