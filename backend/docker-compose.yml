@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16
+    container_name: eduhub-db
+    environment:
+      POSTGRES_USER: eduhub
+      POSTGRES_PASSWORD: eduhub
+      POSTGRES_DB: eduhub
+    ports:
+      - "5433:5432"   # 5432 на хосте занят локальным PostgreSQL
+    volumes:
+      - eduhub_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduhub -d eduhub"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  eduhub_pgdata:

@@ -1,0 +1,42 @@
+-- Migration: {{NAME}}
+-- Created: {{DATE}}
+-- Description: {{DESCRIPTION}}
+
+-- ============================================================
+-- UP
+-- ============================================================
+BEGIN;
+
+-- [Пример: новая таблица]
+-- CREATE TABLE payments (
+--     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+--     amount      NUMERIC(20,2) NOT NULL,
+--     currency    TEXT        NOT NULL,
+--     status      TEXT        NOT NULL DEFAULT 'pending'
+--                             CHECK (status IN ('pending','success','failed')),
+--     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+--     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+--     deleted_at  TIMESTAMPTZ NULL
+-- );
+
+-- [Пример: новая nullable колонка]
+-- ALTER TABLE payments ADD COLUMN provider_ref TEXT NULL;
+
+-- [Пример: SET NOT NULL после backfill]
+-- ALTER TABLE payments ALTER COLUMN provider_ref SET NOT NULL;
+
+-- [Пример: новый индекс — ВЫНЕСТИ В ОТДЕЛЬНУЮ МИГРАЦИЮ вне BEGIN/COMMIT]
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_payments_status ON payments(status);
+
+COMMIT;
+
+-- ============================================================
+-- DOWN
+-- ============================================================
+BEGIN;
+
+-- [Откат должен быть идемпотентным]
+-- DROP TABLE IF EXISTS payments;
+-- ALTER TABLE payments DROP COLUMN IF EXISTS provider_ref;
+
+COMMIT;

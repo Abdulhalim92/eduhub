@@ -7,14 +7,17 @@
 Кликабельный HTML-прототип панели SuperAdmin платформы «Линия» (Multi-Tenant SaaS для учебных центров) и кабинета центра (две страницы: `index.html` и `eduhub.html`). Бэкенда нет: данные отдаёт mock-слой `api` в памяти страницы. Язык интерфейса — русский, валюта — сомони.
 
 Где что лежит:
-- **Требования** — `docs/spec/src/` (Markdown, источник правды); выгрузка `docs/spec/Specifikaciya_Liniya_v2_0.docx`, прежние версии в `docs/spec/archive/`.
+- **Требования** — `docs/spec/src/` (Markdown, источник правды); выгрузка `docs/spec/Specifikaciya_Liniya_v2_5.docx`, прежние версии в `docs/spec/archive/`.
+- **ТЗ на бэкенд** — `docs/tz/` (индекс `README.md`, трассировка `85-traceability.md`); анализ конкурентов — `docs/analysis/competitors.md`. При изменении спецификации обновлять ТЗ и трассировку.
 - **Оформление экранов** — `docs/design/ui-principles.md`; референсы — `docs/design/references/`, макеты — `docs/design/mockups/`.
-- **Контракт методов данных** — шапка `src/js/core/api.js` (таблица «метод → REST»).
+- **Контракт методов данных** — для прототипа шапка `src/js/core/api.js`; для бэкенда `docs/tz/50-api.md` и спецификация.
+- **Бэкенд на Go** — `backend/` (свой `go.mod`, модульный монолит, Clean Architecture); правила — `.claude/rules/go.md`, `db.md`, `migrations.md`, `security.md`, `architecture.md`, `money.md`; агенты — `.claude/agents/go-*`, `db-*`, `sec-auditor`, `arch-sysdesign`.
 
 ## Команды
 
 - Тесты: `sh tests/run.sh` (Chrome headless, два набора: кабинет платформы — `tests/suite.js` поверх `index.html`, кабинет центра — `tests/suite-center.js` поверх `eduhub.html`, вход — `tests/suite-login.js` поверх `login.html`; печатает только упавшие и общий итог).
 - После правок js/css: `sh tools/bump-version.sh` (ставит `?v=` в `index.html`, `eduhub.html` и `login.html`, иначе браузер показывает кеш).
+- Бэкенд (из `backend/`, когда появится код): `go build ./...`, `go vet ./...`, `go test ./... -race -count=1`, `golangci-lint run`, `govulncheck ./...`.
 - Спецификация: `python3 tools/build-spec.py` (проверка ID, ссылок, полей + сборка `.docx`; `--check` — только проверка). Нужны pandoc (`pip install pypandoc_binary`) и python-docx.
 - Скриншот: `chrome --headless=new --window-size=1440,900 --virtual-time-budget=8000 --screenshot=out.png "file://$PWD/index.html#/<экран>"`.
 - В тестах: `apiConfig.latencyMs = 0`, `PAGE_SIZE = 100` (пагинацию проверяет отдельный блок), после `await go(...)` давать `await sleep(...)`.
@@ -27,6 +30,12 @@
 - Не завершать задачу без свежего вывода проверки (`sh tests/run.sh`, `build-spec.py --check` для спецификации). Если что-то не проверено — сказать об этом.
 - **Никогда:** commit/push без явной просьбы; добавлять новые hex-литералы в шаблоны (в коде есть старые — не трогать без задачи); вставлять непроэкранированный ввод в `innerHTML`.
 - Хук `PreCompact` (`.claude/hooks/precompact-save.py`) перед компактом сохраняет снимок в `CLAUDE.local.md`; после компакта прочитать снимок и раздел «Заметки».
+
+## Оформление документов
+
+- В файлах репозитория (`docs/`, спецификация, ТЗ, код, комментарии, сообщения коммитов) не оставлять историю обсуждений: ссылки на разговор или переписку, фразы «как договорились», «по вашему ответу», «решение владельца в чате», пары вопрос-ответ, имена участников обсуждения, номера вопросов обсуждения.
+- Фиксировать только итог в нейтральной форме: правило, решение, причину и последствия («Принято: …», «Допущение: …», `BR-…`, `Q-…`). Что изменилось между версиями документа, описывает `95-changelog.md`, а не как это обсуждалось.
+- Документ должен читаться как самостоятельный профессиональный текст человеком, который не видел обсуждения.
 
 ## Графы знаний
 
